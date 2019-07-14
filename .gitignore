@@ -1,0 +1,9 @@
+Debug
+include
+lib
+src
+x64
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.dll
