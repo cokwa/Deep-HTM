@@ -1,0 +1,40 @@
+#version 430
+
+uniform uint inputCount, outputCount;
+
+buffer Inputs
+{
+	float inputs[];
+};
+
+buffer Outputs
+{
+	float outputs[];
+};
+
+buffer Weights
+{
+	float weights[];
+};
+
+buffer Biases
+{
+	float biases[];
+};
+
+layout(local_size_x = 1) in;
+
+void main()
+{
+	uint globalOutput = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_WorkGroupSize.x;
+	uint localOutput = globalOutput % outputCount, inputOffset = globalOutput / outputCount * inputCount;
+
+	float _output = biases[localOutput];
+
+	for(uint localInput = 0u; localInput < gl_WorkGroupSize.x; localInput++)
+	{
+		_output += weights[localInput + localOutput * inputCount] * inputs[inputOffset + localInput];
+	}
+
+	outputs[globalOutput] = _output;
+}
