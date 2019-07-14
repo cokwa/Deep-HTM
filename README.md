@@ -1,1 +1,1 @@
-# Deep-HTM
+# DeepHTM
