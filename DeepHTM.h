@@ -18,7 +18,7 @@ namespace DeepHTM
 			std::ifstream file(path);
 			if (!file)
 			{
-				throw std::exception();
+				throw std::runtime_error(path);
 			}
 
 			file.seekg(0, file.end);
@@ -30,6 +30,21 @@ namespace DeepHTM
 			GLint shader = glCreateShader(GL_COMPUTE_SHADER);
 			const char* sources[]{ source.c_str() };
 			glShaderSource(shader, 1, sources, nullptr);
+			glCompileShader(shader);
+
+			GLint status;
+			glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+
+			if (status == GL_FALSE)
+			{
+				GLint length;
+				glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
+
+				std::string infoLog(length, '\0');
+				glGetShaderInfoLog(shader, length, nullptr, &infoLog[0]);
+
+				throw std::runtime_error(infoLog);
+			}
 
 			program = glCreateProgram();
 			glAttachShader(program, shader);
@@ -37,7 +52,6 @@ namespace DeepHTM
 			glDetachShader(program, shader);
 			glDeleteShader(shader);
 
-			GLint status;
 			glGetProgramiv(program, GL_LINK_STATUS, &status);
 
 			if (status == GL_FALSE)
@@ -67,7 +81,10 @@ namespace DeepHTM
 	public:
 		DeepHTM()
 		{
-			ComputeShader* computeShader = new ComputeShader("shaders/spatial_pooler_1.comp");
+			ComputeShader* computeShader = new ComputeShader("shaders/sp_fully_connected.comp");
+			delete computeShader;
+
+			computeShader = new ComputeShader("shaders/sp_k_winner.comp");
 			delete computeShader;
 		}
 
