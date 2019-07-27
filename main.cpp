@@ -14,16 +14,45 @@
 int main()
 {
 	sf::RenderWindow window(sf::VideoMode(640, 480), "DeepHTM");
-
+	
 	if (!gladLoadGL())
 	{
 		throw std::exception();
 	}
 
+	sf::RectangleShape rect((sf::Vector2f)window.getSize());
+	sf::Shader visualizer;
+
+	std::string vert = \
+		"#version 430\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"	gl_Position = gl_ModelViewProjecctionMatrix * gl_Vertex;\n"
+		"	gl_TexCoord[0] = gl_TextureMatrix[0] * gl_MultiTexCoord0;\n"
+		"	gl_FontColor = gl_Color;\n"
+		"}\n";
+
+	std::string frag = \
+		"#version 430\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"	gl_FragColor = gl_Color;\n"
+		"}\n";
+
+	std::cout << vert << std::endl << frag << std::endl;
+
+	sf::MemoryInputStream vertStream, fragStream;
+	vertStream.open(vert.c_str(), vert.length());
+	fragStream.open(frag.c_str(), frag.length());
+	visualizer.loadFromStream(vertStream, fragStream);
+
+	DeepHTM::DeepHTM* deepHTM = nullptr;
+
 	try
 	{
-		DeepHTM::DeepHTM* deepHTM = new DeepHTM::DeepHTM();
-		delete deepHTM;
+		deepHTM = new DeepHTM::DeepHTM();
 	}
 	catch (const std::exception& exception)
 	{
@@ -43,7 +72,13 @@ int main()
 		}
 
 		window.clear();
+		window.draw(rect);
 		window.display();
+	}
+
+	if (deepHTM != nullptr)
+	{
+		delete deepHTM;
 	}
 
 	return 0;

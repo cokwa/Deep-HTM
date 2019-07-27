@@ -3,10 +3,9 @@
 #ifndef EXTERNAL_PARAMETERS
 	#define OUTPUT_SIZE_X 1u
 	#define OUTPUT_SIZE_Y 1u
+	#define OUTPUT_COUNT (OUTPUT_SIZE_X * OUTPUT_SIZE_Y)
+	#define ACTIVE_OUTPUT_COUNT 1u
 #endif
-
-//collides with macros
-uniform uint outputCount, activeOutputCount;
 
 buffer Outputs
 {
@@ -21,35 +20,36 @@ buffer ActiveOutputs
 layout(local_size_x = OUTPUT_SIZE_X, local_size_y = OUTPUT_SIZE_Y) in;
 
 //partially sorted
-shared uint sortedOutputs[OUTPUT_SIZE_X * OUTPUT_SIZE_Y];
+shared uint sortedOutputs[OUTPUT_COUNT];
 
 void main()
 {
-	uint outputOffset = (gl_WorkGroupID.x + gl_WorkGroupID.y * gl_WorkGroupSize.x) * outputCount;
-	uint activeOutputOffset = (gl_WorkGroupID.x + gl_WorkGroupID.y * gl_WorkGroupSize.x) * activeOutputCount;
+	const uint workGroupIndex = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x;
+	uint outputOffset = workGroupIndex * OUTPUT_COUNT;
+	uint localOutput = gl_LocalInvocationIndex;
+	sortedOutputs[localOutput] = outputOffset + localOutput;
+
+	barrier();
+
+	uint activeOffset = workGroupIndex * ACTIVE_OUTPUT_COUNT;
 	
-	for(uint activeOutput = 0u; activeOutput < activeOutputCount; activeOutput++)
+	for(uint localActive = 0u; localActive < ACTIVE_OUTPUT_COUNT; localActive++)
 	{
-		uint left = gl_LocalInvocationIndex, right = gl_LocalInvocationIndex + 1u;
-		
-		while(right < outputCount)
+		for(uint stride = (OUTPUT_COUNT - localActive + 1u) / 2u; stride > 0u; stride = (stride + 1u) / 2u)
 		{
-			if(outputs[sortedOutputs[left]] < outputs[sortedOutputs[right]])
+			if(localOutput < stride && outputs[sortedOutputs[localOutput]] < outputs[sortedOutputs[localOutput + stride]])
 			{
-				uint tmp = sortedOutputs[left];
-				sortedOutputs[left] = sortedOutputs[right];
-				sortedOutputs[right] = tmp;
+				uint tmp = sortedOutputs[localOutput];
+				sortedOutputs[localOutput] = sortedOutputs[localOutput + stride];
+				sortedOutputs[localOutput + stride] = tmp;
 			}
 
-			memoryBarrier();
-			
-			left *= 2u;
-			right *= 2u;
+			barrier();
 		}
 
-		if(gl_LocalInvocationID == uvec3(0u))
+		if(gl_LocalInvocationIndex == 0u)
 		{
-			activeOutputs[activeOutputOffset + activeOutput] = sortedOutputs[0];
+			activeOutputs[activeOffset + localActive] = sortedOutputs[0];
 		}
 	}
 }

@@ -78,8 +78,11 @@ namespace DeepHTM
 
 	class DeepHTM
 	{
+	private:
+		GLuint program, vbo, vao;
+
 	public:
-		DeepHTM()
+		DeepHTM() : program(0), vbo(0), vao(0)
 		{
 			ComputeShader* computeShader = new ComputeShader("shaders/sp_fully_connected.comp");
 			delete computeShader;
@@ -90,7 +93,6 @@ namespace DeepHTM
 
 		virtual ~DeepHTM()
 		{
-
 		}
 	};
 }
