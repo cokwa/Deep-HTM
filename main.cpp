@@ -3,11 +3,23 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/OpenGL.hpp>
 
+#if _DEBUG
+
+#pragma comment(lib, "sfml-system-d.lib")
+#pragma comment(lib, "sfml-window-d.lib")
+#pragma comment(lib, "sfml-graphics-d.lib")
+#pragma comment(lib, "sfml-audio-d.lib")
+#pragma comment(lib, "sfml-network-d.lib")
+
+#else
+
 #pragma comment(lib, "sfml-system.lib")
 #pragma comment(lib, "sfml-window.lib")
 #pragma comment(lib, "sfml-graphics.lib")
 #pragma comment(lib, "sfml-audio.lib")
 #pragma comment(lib, "sfml-network.lib")
+
+#endif
 
 #include<iostream>
 
@@ -20,33 +32,38 @@ int main()
 		throw std::exception();
 	}
 
-	sf::RectangleShape rect((sf::Vector2f)window.getSize());
 	sf::Shader visualizer;
+	visualizer.loadFromFile("shaders/debug.vert", "shaders/debug.frag");
+	sf::Shader::bind(&visualizer);
 
-	std::string vert = \
-		"#version 430\n"
-		"\n"
-		"void main()\n"
-		"{\n"
-		"	gl_Position = gl_ModelViewProjecctionMatrix * gl_Vertex;\n"
-		"	gl_TexCoord[0] = gl_TextureMatrix[0] * gl_MultiTexCoord0;\n"
-		"	gl_FontColor = gl_Color;\n"
-		"}\n";
+	GLfloat vertices[]
+	{
+		-1.f, -1.f, 0.f, 1.f,
+		0.f, 0.f,
 
-	std::string frag = \
-		"#version 430\n"
-		"\n"
-		"void main()\n"
-		"{\n"
-		"	gl_FragColor = gl_Color;\n"
-		"}\n";
+		1.f, -1.f, 0.f, 1.f,
+		1.f, 0.f,
 
-	std::cout << vert << std::endl << frag << std::endl;
+		-1.f, 1.f, 0.f, 1.f,
+		0.f, 1.f,
 
-	sf::MemoryInputStream vertStream, fragStream;
-	vertStream.open(vert.c_str(), vert.length());
-	fragStream.open(frag.c_str(), frag.length());
-	visualizer.loadFromStream(vertStream, fragStream);
+		1.f, 1.f, 0.f, 1.f,
+		1.f, 1.f
+	};
+
+	GLuint vao, vbo;
+	vao = vbo = 0;
+
+	glGenVertexArrays(1, &vao);
+	glGenBuffers(1, &vbo);
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (const GLvoid*)0);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (const GLvoid*)(sizeof(GLfloat) * 4));
 
 	DeepHTM::DeepHTM* deepHTM = nullptr;
 
@@ -71,8 +88,13 @@ int main()
 			}
 		}
 
+		const sf::Vector2u windowSize = window.getSize();
+		glViewport(0, 0, windowSize.x, windowSize.y);
+
 		window.clear();
-		window.draw(rect);
+		
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
 		window.display();
 	}
 
@@ -80,6 +102,10 @@ int main()
 	{
 		delete deepHTM;
 	}
+
+	glDeleteVertexArrays(1, &vao);
+	glDeleteBuffers(1, &vbo);
+	vao = vbo = 0;
 
 	return 0;
 }

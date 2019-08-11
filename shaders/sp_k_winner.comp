@@ -29,22 +29,20 @@ void main()
 	uint localOutput = gl_LocalInvocationIndex;
 	sortedOutputs[localOutput] = outputOffset + localOutput;
 
-	barrier();
-
 	uint activeOffset = workGroupIndex * ACTIVE_OUTPUT_COUNT;
 	
 	for(uint localActive = 0u; localActive < ACTIVE_OUTPUT_COUNT; localActive++)
 	{
 		for(uint stride = (OUTPUT_COUNT - localActive + 1u) / 2u; stride > 0u; stride = (stride + 1u) / 2u)
 		{
+			barrier();
+
 			if(localOutput < stride && outputs[sortedOutputs[localOutput]] < outputs[sortedOutputs[localOutput + stride]])
 			{
 				uint tmp = sortedOutputs[localOutput];
 				sortedOutputs[localOutput] = sortedOutputs[localOutput + stride];
 				sortedOutputs[localOutput + stride] = tmp;
 			}
-
-			barrier();
 		}
 
 		if(gl_LocalInvocationIndex == 0u)
