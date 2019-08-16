@@ -1,7 +1,6 @@
 #include"DeepHTM.h"
 
 #include <SFML/Graphics.hpp>
-#include <SFML/OpenGL.hpp>
 
 #if _DEBUG
 
