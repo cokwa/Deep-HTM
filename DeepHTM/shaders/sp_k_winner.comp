@@ -1,0 +1,53 @@
+#version 430
+
+#ifndef EXTERNAL_PARAMETERS
+	#define OUTPUT_SIZE_X 1u
+	#define OUTPUT_SIZE_Y 1u
+	#define OUTPUT_COUNT (OUTPUT_SIZE_X * OUTPUT_SIZE_Y)
+	#define ACTIVE_OUTPUT_COUNT 1u
+#endif
+
+buffer Outputs
+{
+	float outputs[];
+};
+
+buffer ActiveOutputs
+{
+	uint activeOutputs[];
+};
+
+layout(local_size_x = OUTPUT_SIZE_X, local_size_y = OUTPUT_SIZE_Y) in;
+
+//partially sorted
+shared uint sortedOutputs[OUTPUT_COUNT];
+
+void main()
+{
+	const uint workGroupIndex = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x;
+	uint outputOffset = workGroupIndex * OUTPUT_COUNT;
+	uint localOutput = gl_LocalInvocationIndex;
+	sortedOutputs[localOutput] = outputOffset + localOutput;
+
+	uint activeOffset = workGroupIndex * ACTIVE_OUTPUT_COUNT;
+	
+	for(uint localActive = 0u; localActive < ACTIVE_OUTPUT_COUNT; localActive++)
+	{
+		for(uint stride = (OUTPUT_COUNT - localActive + 1u) / 2u; stride > 0u; stride = (stride + 1u) / 2u)
+		{
+			barrier();
+
+			if(localOutput < stride && outputs[sortedOutputs[localOutput]] < outputs[sortedOutputs[localOutput + stride]])
+			{
+				uint tmp = sortedOutputs[localOutput];
+				sortedOutputs[localOutput] = sortedOutputs[localOutput + stride];
+				sortedOutputs[localOutput + stride] = tmp;
+			}
+		}
+
+		if(gl_LocalInvocationIndex == 0u)
+		{
+			activeOutputs[activeOffset + localActive] = sortedOutputs[0];
+		}
+	}
+}
