@@ -1,9 +1,7 @@
-Debug
-include
-lib
-src
+.vs
 x64
-*.vcxproj
-*.vcxproj.filters
-*.vcxproj.user
+DeepHTM/include
+DeepHTM/lib
+DeepHTM/src
+DeepHTM/x64
 *.dll
