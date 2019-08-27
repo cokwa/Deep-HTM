@@ -81,14 +81,20 @@ int main()
 
 		while (window.pollEvent(event))
 		{
-			if (event.type == sf::Event::Closed)
+			switch (event.type)
 			{
-				window.close();
+				case sf::Event::Closed:
+					window.close();
+					break;
+
+				case sf::Event::Resized:
+				{
+					const sf::Vector2u windowSize = window.getSize();
+					glViewport(0, 0, windowSize.x, windowSize.y);
+					break;
+				}
 			}
 		}
-
-		const sf::Vector2u windowSize = window.getSize();
-		glViewport(0, 0, windowSize.x, windowSize.y);
 
 		window.clear();
 		

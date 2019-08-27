@@ -43,5 +43,8 @@
     <None Include="shaders\debug.frag">
       <Filter>리소스 파일</Filter>
     </None>
+    <None Include="shaders\debug.vert">
+      <Filter>리소스 파일</Filter>
+    </None>
   </ItemGroup>
 </Project>

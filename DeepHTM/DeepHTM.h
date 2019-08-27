@@ -10,11 +10,16 @@ namespace DeepHTM
 	public:
 		DeepHTM()
 		{
-			GL::ComputeShader* computeShader = new GL::ComputeShader("shaders/sp_fully_connected.comp");
-			delete computeShader;
+			Layer::Config config;
+			config.minibatchSize = 32;
 
-			computeShader = new GL::ComputeShader("shaders/sp_k_winner.comp");
-			delete computeShader;
+			GL::ShaderStorageBuffer<GLfloat> inputs(100);
+			inputs.Randomize();
+
+			Layer::SpatialPooler* sp = new Layer::SpatialPooler(config, inputs.GetSize(), 32, 32, 40);
+			sp->Run(inputs);
+			
+			delete sp;
 		}
 
 		virtual ~DeepHTM()

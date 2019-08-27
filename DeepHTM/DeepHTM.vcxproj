@@ -140,6 +140,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\debug.frag" />
+    <None Include="shaders\debug.vert" />
     <None Include="shaders\sp_fully_connected.comp" />
     <None Include="shaders\sp_k_winner.comp" />
   </ItemGroup>

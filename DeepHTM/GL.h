@@ -15,7 +15,7 @@ namespace DeepHTM
 			GLint program;
 
 		public:
-			ComputeShader(const std::string& path) : program(0)
+			ComputeShader(const std::string& path, const std::string& string = "") : program(0)
 			{
 				std::ifstream file(path);
 				if (!file)
@@ -28,6 +28,15 @@ namespace DeepHTM
 				file.seekg(0, file.beg);
 				file.read(&source[0], source.length());
 				file.close();
+
+				if (!string.empty())
+				{
+					const size_t versionLine = source.find('\n') + 1;
+					source =
+						source.substr(0, versionLine) +
+						'\n' + string + '\n' +
+						source.substr(versionLine, source.length());
+				}
 
 				GLint shader = glCreateShader(GL_COMPUTE_SHADER);
 				const char* sources[]{ source.c_str() };
@@ -76,16 +85,24 @@ namespace DeepHTM
 					program = 0;
 				}
 			}
+
+			void Use() const
+			{
+				glUseProgram(program);
+			}
 		};
 
 		template<class T>
 		class ShaderStorageBuffer
 		{
 		private:
+			GLsizeiptr size;
+			GLenum usage;
+
 			GLuint ssbo;
 
 		public:
-			ShaderStorageBuffer(GLsizeiptr size, const T* data, GLenum usage) : ssbo(0)
+			ShaderStorageBuffer(GLsizeiptr size, const T* data, GLenum usage) : size(size), usage(usage), ssbo(0)
 			{
 				glGenBuffers(1, &ssbo);
 				glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
@@ -112,9 +129,33 @@ namespace DeepHTM
 				}
 			}
 
-			void Bind(GLuint index)
+			GLsizeiptr GetSize() const
+			{
+				return size;
+			}
+
+			GLenum GetUsage() const
+			{
+				return usage;
+			}
+
+			void Bind(GLuint index) const
 			{
 				glBindBufferBase(GL_SHADER_STORAGE_BUFFER, index, ssbo);
+			}
+
+			void Randomize()
+			{
+				glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+				T* data = reinterpret_cast<T*>(glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY));
+
+				for (GLsizeiptr i = 0; i < size; i++)
+				{
+					data[i] = static_cast<T>(rand() / (RAND_MAX * 2.0) - 1.0);
+				}
+
+				glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+				glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 			}
 		};
 	}

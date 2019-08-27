@@ -1,53 +1,64 @@
 #version 430
 
 #ifndef EXTERNAL_PARAMETERS
-	#define OUTPUT_SIZE_X 1u
-	#define OUTPUT_SIZE_Y 1u
-	#define OUTPUT_COUNT (OUTPUT_SIZE_X * OUTPUT_SIZE_Y)
-	#define ACTIVE_OUTPUT_COUNT 1u
+	#define MINICOLUMNS_BINDING 0
+	#define WINNER_MINICOLUMNS_BINDING 1
+
+	#define MINICOLUMNS_SIZE_X 1u
+	#define MINICOLUMNS_SIZE_Y 1u
+	#define MINICOLUMN_COUNT (MINICOLUMNS_SIZE_X * MINICOLUMNS_SIZE_Y)
+	#define WINNER_MINICOLUMN_COUNT 1u
 #endif
 
-buffer Outputs
+layout(binding = MINICOLUMNS_BINDING) buffer Minicolumns
 {
-	float outputs[];
+	float minicolumns[];
 };
 
-buffer ActiveOutputs
+layout(binding = WINNER_MINICOLUMNS_BINDING) buffer WinnerMinicolumns
 {
-	uint activeOutputs[];
+	uint winnerMinicolumns[];
 };
 
-layout(local_size_x = OUTPUT_SIZE_X, local_size_y = OUTPUT_SIZE_Y) in;
+//probably should someday change it to be constant
+layout(local_size_x = MINICOLUMNS_SIZE_X, local_size_y = MINICOLUMNS_SIZE_Y) in;
 
 //partially sorted
-shared uint sortedOutputs[OUTPUT_COUNT];
+shared uint sortedMinicolumns[MINICOLUMN_COUNT];
+
+//this is a mess
 
 void main()
 {
 	const uint workGroupIndex = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x;
-	uint outputOffset = workGroupIndex * OUTPUT_COUNT;
+	uint outputOffset = workGroupIndex * MINICOLUMN_COUNT;
 	uint localOutput = gl_LocalInvocationIndex;
-	sortedOutputs[localOutput] = outputOffset + localOutput;
+	sortedMinicolumns[localOutput] = outputOffset + localOutput;
 
-	uint activeOffset = workGroupIndex * ACTIVE_OUTPUT_COUNT;
+	uint activeOffset = workGroupIndex * WINNER_MINICOLUMN_COUNT;
 	
-	for(uint localActive = 0u; localActive < ACTIVE_OUTPUT_COUNT; localActive++)
+	for(uint localActive = 0u; localActive < WINNER_MINICOLUMN_COUNT; localActive++)
 	{
-		for(uint stride = (OUTPUT_COUNT - localActive + 1u) / 2u; stride > 0u; stride = (stride + 1u) / 2u)
+		for(uint stride = (MINICOLUMN_COUNT - localActive + 1u) / 2u;; stride = (stride + 1u) / 2u)
 		{
 			barrier();
 
-			if(localOutput < stride && outputs[sortedOutputs[localOutput]] < outputs[sortedOutputs[localOutput + stride]])
+			if(localActive <= localOutput && localOutput < stride && minicolumns[sortedMinicolumns[localOutput]] < minicolumns[sortedMinicolumns[localOutput + stride]])
 			{
-				uint tmp = sortedOutputs[localOutput];
-				sortedOutputs[localOutput] = sortedOutputs[localOutput + stride];
-				sortedOutputs[localOutput + stride] = tmp;
+				uint tmp = sortedMinicolumns[localOutput];
+				sortedMinicolumns[localOutput] = sortedMinicolumns[localOutput + stride];
+				sortedMinicolumns[localOutput + stride] = tmp;
+			}
+
+			if(stride <= 1u)
+			{
+				break;
 			}
 		}
+	}
 
-		if(gl_LocalInvocationIndex == 0u)
-		{
-			activeOutputs[activeOffset + localActive] = sortedOutputs[0];
-		}
+	if(localOutput < WINNER_MINICOLUMN_COUNT)
+	{
+		winnerMinicolumns[activeOffset + localOutput] = sortedMinicolumns[localOutput];
 	}
 }

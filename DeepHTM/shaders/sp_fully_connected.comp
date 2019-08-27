@@ -1,23 +1,34 @@
 #version 430
 
-uniform uint inputCount, outputCount;
+#ifndef EXTERNAL_PARAMETERS
+	#define INPUT_COUNT_LOCATION 0
+	#define MINICOLUMN_COUNT_LOCATION 1
 
-buffer Inputs
+	#define INPUTS_BINDING 0
+	#define MINICOLUMNS_BINDING 1
+	#define WEIGHTS_BINDING 2
+	#define BIASES_BINDING 3
+#endif
+
+layout(location = INPUT_COUNT_LOCATION) uniform uint inputCount;
+layout(location = MINICOLUMN_COUNT_LOCATION) uniform uint minicolumnCount;
+
+layout(binding = INPUTS_BINDING) buffer Inputs
 {
 	float inputs[];
 };
 
-buffer Outputs
+layout(binding = MINICOLUMNS_BINDING) buffer Minicolumns
 {
-	float outputs[];
+	float minicolumns[];
 };
 
-buffer Weights
+layout(binding = WEIGHTS_BINDING) buffer Weights
 {
 	float weights[];
 };
 
-buffer Biases
+layout(binding = BIASES_BINDING) buffer Biases
 {
 	float biases[];
 };
@@ -27,7 +38,7 @@ layout(local_size_x = 1) in;
 void main()
 {
 	uint globalOutput = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_WorkGroupSize.x;
-	uint localOutput = globalOutput % outputCount, inputOffset = globalOutput / outputCount * inputCount;
+	uint localOutput = globalOutput % minicolumnCount, inputOffset = globalOutput / minicolumnCount * inputCount;
 
 	float _output = biases[localOutput];
 
@@ -36,5 +47,5 @@ void main()
 		_output += weights[localInput + localOutput * inputCount] * inputs[inputOffset + localInput];
 	}
 
-	outputs[globalOutput] = _output;
+	minicolumns[globalOutput] = _output;
 }
