@@ -39,20 +39,15 @@ void main()
 	
 	for(uint localActive = 0u; localActive < WINNER_MINICOLUMN_COUNT; localActive++)
 	{
-		for(uint stride = (MINICOLUMN_COUNT - localActive + 1u) / 2u;; stride = (stride + 1u) / 2u)
+		for(uint stride = MINICOLUMN_COUNT >> 1u; stride > 0u; stride >>= 1u)
 		{
 			barrier();
 
-			if(localActive <= localOutput && localOutput < stride && minicolumns[sortedMinicolumns[localOutput]] < minicolumns[sortedMinicolumns[localOutput + stride]])
+			if(localActive <= localOutput && localOutput - localActive < stride && localOutput + stride < MINICOLUMN_COUNT && minicolumns[sortedMinicolumns[localOutput]] < minicolumns[sortedMinicolumns[localOutput + stride]])
 			{
 				uint tmp = sortedMinicolumns[localOutput];
 				sortedMinicolumns[localOutput] = sortedMinicolumns[localOutput + stride];
 				sortedMinicolumns[localOutput + stride] = tmp;
-			}
-
-			if(stride <= 1u)
-			{
-				break;
 			}
 		}
 	}

@@ -2,6 +2,9 @@
 
 #include"GL.h"
 
+#include<iostream>
+#include<algorithm>
+
 namespace DeepHTM
 {
 	namespace Layer
@@ -45,7 +48,7 @@ namespace DeepHTM
 
 			const Config& config;
 
-			const GLuint inputCount, minicolumnsSizeX, minicolumnsSizeY, minicolumnCount;
+			const GLuint inputCount, minicolumnsSizeX, minicolumnsSizeY, minicolumnCount, winnerMinicolumnCount;
 
 			GL::ShaderStorageBuffer<GLfloat> minicolumns, weights, biases;
 			GL::ShaderStorageBuffer<GLuint> winnerMinicolumns;
@@ -53,7 +56,7 @@ namespace DeepHTM
 			GL::ComputeShader fullyConnected, kWinner;
 
 		public:
-			SpatialPooler(const Config& config, GLuint inputCount, GLuint minicolumnsSizeX, GLuint minicolumnsSizeY, GLuint winnerMinicolumnCount) : config(config), inputCount(inputCount), minicolumnsSizeX(minicolumnsSizeX), minicolumnsSizeY(minicolumnsSizeY), minicolumnCount(minicolumnsSizeX* minicolumnsSizeY), minicolumns((GLsizeiptr)minicolumnCount * config.minibatchSize), weights((GLsizeiptr)inputCount * minicolumnCount), biases(minicolumnCount), winnerMinicolumns(winnerMinicolumnCount),
+			SpatialPooler(const Config& config, GLuint inputCount, GLuint minicolumnsSizeX, GLuint minicolumnsSizeY, GLuint winnerMinicolumnCount) : config(config), inputCount(inputCount), minicolumnsSizeX(minicolumnsSizeX), minicolumnsSizeY(minicolumnsSizeY), minicolumnCount(minicolumnsSizeX * minicolumnsSizeY), winnerMinicolumnCount(winnerMinicolumnCount), minicolumns((GLsizeiptr)minicolumnCount * config.minibatchSize), weights((GLsizeiptr)inputCount * minicolumnCount), biases(minicolumnCount), winnerMinicolumns((GLsizeiptr)winnerMinicolumnCount * config.minibatchSize),
 				fullyConnected
 				(
 					"shaders/sp_fully_connected.comp",
@@ -79,7 +82,28 @@ namespace DeepHTM
 					"#define WINNER_MINICOLUMN_COUNT " + std::to_string(winnerMinicolumnCount)
 				)
 			{
+				weights.Randomize();
+				biases.Randomize();
+			}
 
+			GLuint GetInputCount() const
+			{
+				return inputCount;
+			}
+
+			GLuint GetMinicolumnsSizeX() const
+			{
+				return minicolumnsSizeX;
+			}
+
+			GLuint GetMinicolumnsSizeY() const
+			{
+				return minicolumnsSizeY;
+			}
+
+			GLuint GetMinicolumnCount() const
+			{
+				return minicolumnCount;
 			}
 
 			void Run(const GL::ShaderStorageBuffer<float>& inputs)

@@ -2,6 +2,7 @@
 
 #include<glad/glad.h>
 
+#include<vector>
 #include<string>
 #include<fstream>
 
@@ -96,26 +97,26 @@ namespace DeepHTM
 		class ShaderStorageBuffer
 		{
 		private:
-			GLsizeiptr size;
+			GLsizeiptr length;
 			GLenum usage;
 
 			GLuint ssbo;
 
 		public:
-			ShaderStorageBuffer(GLsizeiptr size, const T* data, GLenum usage) : size(size), usage(usage), ssbo(0)
+			ShaderStorageBuffer(GLsizeiptr length, const T* data, GLenum usage) : length(length), usage(usage), ssbo(0)
 			{
 				glGenBuffers(1, &ssbo);
 				glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-				glBufferData(GL_SHADER_STORAGE_BUFFER, size, data, usage);
+				glBufferData(GL_SHADER_STORAGE_BUFFER, length * sizeof(T), data, usage);
 				glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 			}
 
-			ShaderStorageBuffer(GLsizeiptr size, const T* data) : ShaderStorageBuffer(size, data, GL_DYNAMIC_COPY)
+			ShaderStorageBuffer(GLsizeiptr length, const T* data) : ShaderStorageBuffer(length, data, GL_DYNAMIC_COPY)
 			{
 
 			}
 
-			ShaderStorageBuffer(GLsizeiptr size) : ShaderStorageBuffer(size, nullptr)
+			ShaderStorageBuffer(GLsizeiptr length) : ShaderStorageBuffer(length, nullptr)
 			{
 
 			}
@@ -129,14 +130,32 @@ namespace DeepHTM
 				}
 			}
 
-			GLsizeiptr GetSize() const
+			GLsizeiptr GetLength() const
 			{
-				return size;
+				return length;
 			}
 
 			GLenum GetUsage() const
 			{
 				return usage;
+			}
+
+			std::vector<T> GetData() const
+			{
+				std::vector<T> data(length);
+
+				glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+				const T* buffer = reinterpret_cast<const T*>(glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY));
+
+				for (GLsizeiptr i = 0; i < length; i++)
+				{
+					data[i] = buffer[i];
+				}
+
+				glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+				glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+				return data;
 			}
 
 			void Bind(GLuint index) const
@@ -149,7 +168,7 @@ namespace DeepHTM
 				glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
 				T* data = reinterpret_cast<T*>(glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY));
 
-				for (GLsizeiptr i = 0; i < size; i++)
+				for (GLsizeiptr i = 0; i < length; i++)
 				{
 					data[i] = static_cast<T>(rand() / (RAND_MAX * 2.0) - 1.0);
 				}

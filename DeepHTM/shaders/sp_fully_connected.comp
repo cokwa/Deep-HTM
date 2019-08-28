@@ -37,12 +37,12 @@ layout(local_size_x = 1) in;
 
 void main()
 {
-	uint globalOutput = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_WorkGroupSize.x;
-	uint localOutput = globalOutput % minicolumnCount, inputOffset = globalOutput / minicolumnCount * inputCount;
+	uint globalOutput = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x;
+	uint localOutput = gl_WorkGroupID.x, inputOffset = gl_WorkGroupID.y * inputCount;
 
 	float _output = biases[localOutput];
 
-	for(uint localInput = 0u; localInput < gl_WorkGroupSize.x; localInput++)
+	for(uint localInput = 0u; localInput < inputCount; localInput++)
 	{
 		_output += weights[localInput + localOutput * inputCount] * inputs[inputOffset + localInput];
 	}
