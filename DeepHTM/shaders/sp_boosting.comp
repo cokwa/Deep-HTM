@@ -1,0 +1,64 @@
+#version 430
+
+#ifndef EXTERNAL_PARAMETERS
+	#define SPARSITY_LOCATION 0
+	#define DUTY_CYCLE_INERTIA_LOCATION 1
+	#define BOOSTING_WEIGHT 2
+
+	#define DUTY_CYCLES_BINDING 0
+	#define MINICOLUMN_STATES_BINDING 1
+	#define DELTAS_BINDING 2
+
+	#define MINIBATCH_SIZE 1u
+#endif
+
+layout(location = SPARSITY_LOCATION) uniform float sparsity;
+
+layout(location = DUTY_CYCLE_INERTIA_LOCATION) uniform float dutyCycleInertia;
+layout(location = BOOSTING_WEIGHT) uniform float boostingWeight;
+
+layout(binding = DUTY_CYCLES_BINDING) buffer DutyCycles
+{
+	float dutyCycles[];
+};
+
+layout(binding = MINICOLUMN_STATES_BINDING) buffer MinicolumnStates
+{
+	uint minicolumnStates[];
+};
+
+layout(binding = DELTAS_BINDING) buffer Deltas
+{
+	float deltas[];
+};
+
+layout(local_size_x = MINIBATCH_SIZE) in;
+
+shared uint winCounts[MINIBATCH_SIZE];
+
+void main()
+{
+	const uint minicolumn = gl_WorkGroupID.x, minicolumnCount = gl_NumWorkGroups.x;
+	const uint minibatch = gl_LocalInvocationID.x;
+
+	winCounts[minibatch] = minicolumnStates[minibatch * minicolumnCount + minicolumn];
+
+	for(uint stride = MINIBATCH_SIZE >> 1u; stride > 0u; stride >>= 1u)
+	{
+		barrier();
+
+		if(minibatch < stride)
+		{
+			winCounts[minibatch] += winCounts[minibatch + stride];
+		}
+	}
+
+	if(minibatch == 0u)
+	{
+		float newDutyCycle = mix(float(winCounts[0u]) / MINIBATCH_SIZE, dutyCycles[minicolumn], dutyCycleInertia);
+		dutyCycles[minicolumn] = newDutyCycle;
+
+		//TODO: replace the assignment
+		deltas[minicolumn] = boostingWeight * (-sparsity / newDutyCycle + (1 - sparsity) / (1 - newDutyCycle));
+	}
+}

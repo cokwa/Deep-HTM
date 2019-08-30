@@ -2,7 +2,8 @@
 
 #ifndef EXTERNAL_PARAMETERS
 	#define MINICOLUMNS_BINDING 0
-	#define WINNER_MINICOLUMNS_BINDING 1
+	#define MINICOLUMN_STATES_BINDING 1
+	#define WINNER_MINICOLUMNS_BINDING 2
 
 	#define MINICOLUMNS_SIZE_X 1u
 	#define MINICOLUMNS_SIZE_Y 1u
@@ -15,12 +16,17 @@ layout(binding = MINICOLUMNS_BINDING) buffer Minicolumns
 	float minicolumns[];
 };
 
+layout(binding = MINICOLUMN_STATES_BINDING) buffer MinicolumnStates
+{
+	uint minicolumnStates[];
+};
+
 layout(binding = WINNER_MINICOLUMNS_BINDING) buffer WinnerMinicolumns
 {
 	uint winnerMinicolumns[];
 };
 
-//probably should someday change it to be constant
+//TODO: probably should someday change it to be constant
 layout(local_size_x = MINICOLUMNS_SIZE_X, local_size_y = MINICOLUMNS_SIZE_Y) in;
 
 //partially sorted
@@ -31,9 +37,11 @@ shared uint sortedMinicolumns[MINICOLUMN_COUNT];
 void main()
 {
 	const uint workGroupIndex = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x;
-	uint outputOffset = workGroupIndex * MINICOLUMN_COUNT;
-	uint localOutput = gl_LocalInvocationIndex;
+	const uint outputOffset = workGroupIndex * MINICOLUMN_COUNT;
+	const uint localOutput = gl_LocalInvocationIndex;
+	
 	sortedMinicolumns[localOutput] = outputOffset + localOutput;
+	minicolumnStates[outputOffset + localOutput] = 0u;
 
 	uint activeOffset = workGroupIndex * WINNER_MINICOLUMN_COUNT;
 	
@@ -54,6 +62,8 @@ void main()
 
 	if(localOutput < WINNER_MINICOLUMN_COUNT)
 	{
-		winnerMinicolumns[activeOffset + localOutput] = sortedMinicolumns[localOutput];
+		uint winnerMinicolumn = sortedMinicolumns[localOutput];
+		minicolumnStates[winnerMinicolumn] = 1u;
+		winnerMinicolumns[activeOffset + localOutput] = winnerMinicolumn;
 	}
 }

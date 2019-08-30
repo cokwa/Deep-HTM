@@ -4,6 +4,7 @@
 
 #include<vector>
 #include<string>
+#include<functional>
 #include<fstream>
 
 namespace DeepHTM
@@ -55,7 +56,8 @@ namespace DeepHTM
 					std::string infoLog(length, '\0');
 					glGetShaderInfoLog(shader, length, nullptr, &infoLog[0]);
 
-					throw std::runtime_error(infoLog);
+					//TODO: ugly
+					throw std::runtime_error(sources[0] + std::string("\n:\n") + infoLog);
 				}
 
 				program = glCreateProgram();
@@ -74,7 +76,8 @@ namespace DeepHTM
 					std::string infoLog(length, '\0');
 					glGetProgramInfoLog(program, length, nullptr, &infoLog[0]);
 
-					throw std::runtime_error(infoLog);
+					//TODO: ugly
+					throw std::runtime_error(sources[0] + std::string("\n:\n") + infoLog);
 				}
 			}
 
@@ -140,22 +143,46 @@ namespace DeepHTM
 				return usage;
 			}
 
-			std::vector<T> GetData() const
+			template<class It>
+			void GetData(It data) const
 			{
-				std::vector<T> data(length);
-
 				glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
 				const T* buffer = reinterpret_cast<const T*>(glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY));
 
 				for (GLsizeiptr i = 0; i < length; i++)
 				{
-					data[i] = buffer[i];
+					*data++ = buffer[i];
 				}
 
 				glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 				glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+			}
+
+			std::vector<T> GetData() const
+			{
+				std::vector<T> data(length);
+				GetData(data.begin());
 
 				return data;
+			}
+
+			void SetData(const std::function<T()>& settor)
+			{
+				glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+				T* buffer = reinterpret_cast<T*>(glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY));
+
+				for (GLsizeiptr i = 0; i < length; i++)
+				{
+					buffer[i] = settor();
+				}
+
+				glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+				glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+			}
+
+			void SetData(const std::vector<T>& data)
+			{
+				SetData(data.begin());
 			}
 
 			void Bind(GLuint index) const
@@ -165,16 +192,7 @@ namespace DeepHTM
 
 			void Randomize()
 			{
-				glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-				T* data = reinterpret_cast<T*>(glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY));
-
-				for (GLsizeiptr i = 0; i < length; i++)
-				{
-					data[i] = static_cast<T>(rand() / (RAND_MAX * 2.0) - 1.0);
-				}
-
-				glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-				glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+				SetData([]() { return static_cast<T>(rand() / (RAND_MAX * 2.0) - 1.0); });
 			}
 		};
 	}
