@@ -46,7 +46,7 @@ namespace DeepHTM
 				Minicolumns,
 				MinicolumnStates,
 				DutyCycles,
-				Deltas,
+				Gradients,
 				Weights,
 				Biases,
 				WinnerMinicolumns,
@@ -58,13 +58,13 @@ namespace DeepHTM
 			const GLfloat sparsity;
 			GLfloat dutyCycleInertia, boostingWeight;
 
-			GL::ShaderStorageBuffer<GLfloat> minicolumns, dutyCycles, deltas, weights, biases;
-			GL::ShaderStorageBuffer<GLuint> minicolumnStates, winnerMinicolumns;
+			GL::ShaderStorageBuffer<GLfloat> minicolumns, dutyCycles, gradients, weights, biases;
+			GL::ShaderStorageBuffer<GLuint> minicolumnStates/*TODO: probably needs a better name like 'masks' or something*/, winnerMinicolumns;
 
 			GL::ComputeShader fullyConnected, kWinner, boosting;
 
 		public:
-			SpatialPooler(const Config& config, GLuint inputCount, GLuint minicolumnsSizeX, GLuint minicolumnsSizeY, GLuint winnerMinicolumnCount, GLfloat dutyCycleInertia, GLfloat boostingWeight) : config(config), inputCount(inputCount), minicolumnsSizeX(minicolumnsSizeX), minicolumnsSizeY(minicolumnsSizeY), minicolumnCount(minicolumnsSizeX * minicolumnsSizeY), winnerMinicolumnCount(winnerMinicolumnCount), totalMinicolumnCount((GLsizeiptr)minicolumnCount * config.minibatchSize), sparsity(static_cast<GLfloat>(winnerMinicolumnCount) / minicolumnCount), dutyCycleInertia(dutyCycleInertia), boostingWeight(boostingWeight), minicolumns(totalMinicolumnCount), dutyCycles(minicolumnCount), deltas(minicolumnCount), weights((GLsizeiptr)inputCount* minicolumnCount), biases(minicolumnCount), minicolumnStates(totalMinicolumnCount), winnerMinicolumns((GLsizeiptr)winnerMinicolumnCount* config.minibatchSize),
+			SpatialPooler(const Config& config, GLuint inputCount, GLuint minicolumnsSizeX, GLuint minicolumnsSizeY, GLuint winnerMinicolumnCount, GLfloat dutyCycleInertia, GLfloat boostingWeight) : config(config), inputCount(inputCount), minicolumnsSizeX(minicolumnsSizeX), minicolumnsSizeY(minicolumnsSizeY), minicolumnCount(minicolumnsSizeX * minicolumnsSizeY), winnerMinicolumnCount(winnerMinicolumnCount), totalMinicolumnCount((GLsizeiptr)minicolumnCount * config.minibatchSize), sparsity(static_cast<GLfloat>(winnerMinicolumnCount) / minicolumnCount), dutyCycleInertia(dutyCycleInertia), boostingWeight(boostingWeight), minicolumns(totalMinicolumnCount), dutyCycles(totalMinicolumnCount), gradients(totalMinicolumnCount), weights((GLsizeiptr)inputCount * minicolumnCount), biases(minicolumnCount), minicolumnStates(totalMinicolumnCount), winnerMinicolumns((GLsizeiptr)winnerMinicolumnCount * config.minibatchSize),
 				fullyConnected
 				(
 					"shaders/sp_fully_connected.comp",
@@ -100,7 +100,7 @@ namespace DeepHTM
 					"#define BOOSTING_WEIGHT " + std::to_string(BoostingWeight) + "\n"
 					"#define DUTY_CYCLES_BINDING " + std::to_string(DutyCycles) + "\n"
 					"#define MINICOLUMN_STATES_BINDING " + std::to_string(MinicolumnStates) + "\n"
-					"#define DELTAS_BINDING " + std::to_string(Deltas) + "\n"
+					"#define GRADIENTS_BINDING " + std::to_string(Gradients) + "\n"
 					"#define MINIBATCH_SIZE " + std::to_string(config.minibatchSize) + "\n"
 				)
 			{
@@ -194,11 +194,18 @@ namespace DeepHTM
 
 					dutyCycles.Bind(DutyCycles);
 					minicolumnStates.Bind(MinicolumnStates);
-					deltas.Bind(Deltas);
+					gradients.Bind(Gradients);
 
-					glDispatchCompute(minicolumnCount, 1, 1);
+					glDispatchCompute(minicolumnCount, config.minibatchSize, 1);
 					glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 				}
+
+				for (GLfloat gradient : gradients.GetData())
+				{
+					std::cout << gradient << ' ';
+				}
+
+				std::cout << std::endl;
 			}
 		};
 	}

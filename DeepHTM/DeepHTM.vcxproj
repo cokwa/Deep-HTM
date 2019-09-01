@@ -141,9 +141,10 @@
   <ItemGroup>
     <None Include="shaders\debug.frag" />
     <None Include="shaders\debug.vert" />
-    <None Include="shaders\sp_training.comp" />
+    <None Include="shaders\sp_boosting.comp" />
     <None Include="shaders\sp_fully_connected.comp" />
     <None Include="shaders\sp_k_winner.comp" />
+    <None Include="shaders\sp_weight_update.comp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

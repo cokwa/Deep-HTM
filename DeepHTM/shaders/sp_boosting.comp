@@ -7,7 +7,7 @@
 
 	#define DUTY_CYCLES_BINDING 0
 	#define MINICOLUMN_STATES_BINDING 1
-	#define DELTAS_BINDING 2
+	#define GRADIENTS_BINDING 2
 
 	#define MINIBATCH_SIZE 1u
 #endif
@@ -27,21 +27,31 @@ layout(binding = MINICOLUMN_STATES_BINDING) buffer MinicolumnStates
 	uint minicolumnStates[];
 };
 
-layout(binding = DELTAS_BINDING) buffer Deltas
+layout(binding = GRADIENTS_BINDING) buffer Gradients
 {
-	float deltas[];
+	float gradients[];
 };
 
-layout(local_size_x = MINIBATCH_SIZE) in;
+//layout(local_size_x = MINIBATCH_SIZE) in;
+layout(local_size_x = 1) in;
 
-shared uint winCounts[MINIBATCH_SIZE];
+//shared uint winCounts[MINIBATCH_SIZE];
 
 void main()
 {
+	/*
 	const uint minicolumn = gl_WorkGroupID.x, minicolumnCount = gl_NumWorkGroups.x;
 	const uint minibatch = gl_LocalInvocationID.x;
+	const uint globalMinicolumn = minibatch * minicolumnCount + minicolumn;
 
-	winCounts[minibatch] = minicolumnStates[minibatch * minicolumnCount + minicolumn];
+	float dutyCycle = mix(float(minicolumnStates[globalMinicolumn]), dutyCycles[globalMinicolumn], dutyCycleInertia);
+	dutyCycles[globalMinicolumn] = dutyCycle;
+
+	//TODO: replace the assignment
+	float delta = boostingWeight * (-sparsity / dutyCycle + (1.0 - sparsity) / (1.0 - dutyCycle));
+	gradients[globalMinicolumn] = delta;
+
+	winCounts[minibatch] = minicolumnStates[globalMinicolumn];
 
 	for(uint stride = MINIBATCH_SIZE >> 1u; stride > 0u; stride >>= 1u)
 	{
@@ -55,10 +65,19 @@ void main()
 
 	if(minibatch == 0u)
 	{
-		float newDutyCycle = mix(float(winCounts[0u]) / MINIBATCH_SIZE, dutyCycles[minicolumn], dutyCycleInertia);
-		dutyCycles[minicolumn] = newDutyCycle;
+		float dutyCycle = mix(float(winCounts[0u]) / MINIBATCH_SIZE, dutyCycles[minicolumn], dutyCycleInertia);
+		dutyCycles[minicolumn] = dutyCycle;
 
 		//TODO: replace the assignment
-		deltas[minicolumn] = boostingWeight * (-sparsity / newDutyCycle + (1 - sparsity) / (1 - newDutyCycle));
+		gradients[minicolumn] = boostingWeight * (-sparsity / dutyCycle + (1.0 - sparsity) / (1.0 - dutyCycle));
 	}
+	*/
+
+	const uint minicolumn = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x;
+
+	float dutyCycle = mix(float(minicolumnStates[minicolumn]), dutyCycles[minicolumn], dutyCycleInertia);
+	dutyCycles[minicolumn] = dutyCycle;
+
+	//TODO: replace the assignment
+	gradients[minicolumn] = boostingWeight * (-sparsity / dutyCycle + (1.0 - sparsity) / (1.0 - dutyCycle));
 }
