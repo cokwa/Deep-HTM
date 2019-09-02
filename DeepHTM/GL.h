@@ -192,7 +192,7 @@ namespace DeepHTM
 
 			void Randomize()
 			{
-				SetData([]() { return static_cast<T>(rand() / (RAND_MAX * 2.0) - 1.0); });
+				SetData([]() { return static_cast<T>(rand() / (RAND_MAX * 0.5) - 1.0); });
 			}
 		};
 	}

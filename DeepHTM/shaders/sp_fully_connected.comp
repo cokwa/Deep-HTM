@@ -2,8 +2,7 @@
 
 #ifndef EXTERNAL_PARAMETERS
 	#define INPUT_COUNT_LOCATION 0
-	#define MINICOLUMN_COUNT_LOCATION 1
-
+	
 	#define INPUTS_BINDING 0
 	#define MINICOLUMNS_BINDING 1
 	#define WEIGHTS_BINDING 2
@@ -11,7 +10,6 @@
 #endif
 
 layout(location = INPUT_COUNT_LOCATION) uniform uint inputCount;
-layout(location = MINICOLUMN_COUNT_LOCATION) uniform uint minicolumnCount;
 
 layout(binding = INPUTS_BINDING) buffer Inputs
 {

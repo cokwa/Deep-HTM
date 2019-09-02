@@ -73,7 +73,6 @@ namespace DeepHTM
 
 					"#define EXTERNAL_PARAMETERS\n"
 					"#define INPUT_COUNT_LOCATION " + std::to_string(InputCount) + "\n"
-					"#define MINICOLUMN_COUNT_LOCATION " + std::to_string(MinicolumnCount) + "\n"
 					"#define INPUTS_BINDING " + std::to_string(Inputs) + "\n"
 					"#define MINICOLUMNS_BINDING " + std::to_string(Minicolumns) + "\n"
 					"#define WEIGHTS_BINDING " + std::to_string(Weights) + "\n"
@@ -180,7 +179,6 @@ namespace DeepHTM
 				fullyConnected.Use();
 				{
 					glUniform1ui(InputCount, inputCount);
-					glUniform1ui(MinicolumnCount, minicolumnCount);
 					
 					inputs.Bind(Inputs);
 					minicolumns.Bind(Minicolumns);
@@ -215,8 +213,6 @@ namespace DeepHTM
 					glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 				}
 
-				auto prevBiasesData = biases.GetData();
-
 				weightUpdate.Use();
 				{
 					glUniform1f(LearningRate, config.learningRate);
@@ -231,21 +227,15 @@ namespace DeepHTM
 					glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 				}
 
-				auto biasesData = biases.GetData();
+				auto minicolumnsData = minicolumns.GetData();
+				auto masksData = minicolumnStates.GetData();
 
-				for (size_t i = 0; i < biasesData.size(); i++)
+				for (size_t i = 0; i < minicolumnsData.size(); i++)
 				{
-					std::cout << biasesData[i] - prevBiasesData[i] << ' ';
+					std::cout << (masksData[i] ? minicolumnsData[i] : 0.f) << ' ';
 				}
 
 				std::cout << std::endl;
-
-				/*for (GLfloat gradient : gradients.GetData())
-				{
-					std::cout << gradient << ' ';
-				}
-
-				std::cout << std::endl;*/
 			}
 		};
 	}
