@@ -12,6 +12,7 @@ namespace DeepHTM
 		struct Config
 		{
 			GLuint minibatchSize;
+			GLfloat learningRate;
 		};
 
 		class Layer
@@ -37,7 +38,8 @@ namespace DeepHTM
 				MinicolumnCount,
 				Sparsity,
 				DutyCycleInertia,
-				BoostingWeight
+				BoostingWeight,
+				LearningRate
 			};
 
 			enum Binding
@@ -61,7 +63,7 @@ namespace DeepHTM
 			GL::ShaderStorageBuffer<GLfloat> minicolumns, dutyCycles, gradients, weights, biases;
 			GL::ShaderStorageBuffer<GLuint> minicolumnStates/*TODO: probably needs a better name like 'masks' or something*/, winnerMinicolumns;
 
-			GL::ComputeShader fullyConnected, kWinner, boosting;
+			GL::ComputeShader fullyConnected, kWinner, boosting, weightUpdate;
 
 		public:
 			SpatialPooler(const Config& config, GLuint inputCount, GLuint minicolumnsSizeX, GLuint minicolumnsSizeY, GLuint winnerMinicolumnCount, GLfloat dutyCycleInertia, GLfloat boostingWeight) : config(config), inputCount(inputCount), minicolumnsSizeX(minicolumnsSizeX), minicolumnsSizeY(minicolumnsSizeY), minicolumnCount(minicolumnsSizeX * minicolumnsSizeY), winnerMinicolumnCount(winnerMinicolumnCount), totalMinicolumnCount((GLsizeiptr)minicolumnCount * config.minibatchSize), sparsity(static_cast<GLfloat>(winnerMinicolumnCount) / minicolumnCount), dutyCycleInertia(dutyCycleInertia), boostingWeight(boostingWeight), minicolumns(totalMinicolumnCount), dutyCycles(totalMinicolumnCount), gradients(totalMinicolumnCount), weights((GLsizeiptr)inputCount * minicolumnCount), biases(minicolumnCount), minicolumnStates(totalMinicolumnCount), winnerMinicolumns((GLsizeiptr)winnerMinicolumnCount * config.minibatchSize),
@@ -102,7 +104,20 @@ namespace DeepHTM
 					"#define MINICOLUMN_STATES_BINDING " + std::to_string(MinicolumnStates) + "\n"
 					"#define GRADIENTS_BINDING " + std::to_string(Gradients) + "\n"
 					"#define MINIBATCH_SIZE " + std::to_string(config.minibatchSize) + "\n"
-				)
+				),
+				weightUpdate
+				{
+					"shaders/sp_weight_update.comp",
+
+					"#define EXTERNAL_PARAMETERS\n"
+					"#define LEARNING_RATE_LOCATION " + std::to_string(LearningRate) + "\n"
+					"#define INPUT_COUNT_LOCATION " + std::to_string(InputCount) + "\n"
+					"#define GRADIENTS_BINDING " + std::to_string(Gradients) + "\n"
+					"#define INPUTS_BINDING " + std::to_string(Inputs) + "\n"
+					"#define WEIGHTS_BINDING " + std::to_string(Weights) + "\n"
+					"#define BIASES_BINDING " + std::to_string(Biases) + "\n"
+					"#define MINIBATCH_SIZE " + std::to_string(config.minibatchSize) + "\n"
+				}
 			{
 				dutyCycles.SetData([=]() { return sparsity; });
 
@@ -166,7 +181,7 @@ namespace DeepHTM
 				{
 					glUniform1ui(InputCount, inputCount);
 					glUniform1ui(MinicolumnCount, minicolumnCount);
-
+					
 					inputs.Bind(Inputs);
 					minicolumns.Bind(Minicolumns);
 					weights.Bind(Weights);
@@ -200,12 +215,37 @@ namespace DeepHTM
 					glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 				}
 
-				for (GLfloat gradient : gradients.GetData())
+				auto prevBiasesData = biases.GetData();
+
+				weightUpdate.Use();
+				{
+					glUniform1f(LearningRate, config.learningRate);
+					glUniform1ui(InputCount, inputCount);
+
+					gradients.Bind(Gradients);
+					inputs.Bind(Inputs);
+					weights.Bind(Weights);
+					biases.Bind(Biases);
+
+					glDispatchCompute(inputCount + 1u, minicolumnCount, 1);
+					glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+				}
+
+				auto biasesData = biases.GetData();
+
+				for (size_t i = 0; i < biasesData.size(); i++)
+				{
+					std::cout << biasesData[i] - prevBiasesData[i] << ' ';
+				}
+
+				std::cout << std::endl;
+
+				/*for (GLfloat gradient : gradients.GetData())
 				{
 					std::cout << gradient << ' ';
 				}
 
-				std::cout << std::endl;
+				std::cout << std::endl;*/
 			}
 		};
 	}

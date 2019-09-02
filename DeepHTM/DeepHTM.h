@@ -12,6 +12,7 @@ namespace DeepHTM
 		{
 			Layer::Config config;
 			config.minibatchSize = 32;
+			config.learningRate = 1e-2f;
 
 			Layer::SpatialPooler* sp = new Layer::SpatialPooler(config, 100, 32, 32, 40);
 

@@ -56,6 +56,8 @@ int main()
 	glGenVertexArrays(1, &vao);
 	glGenBuffers(1, &vbo);
 
+	glBindVertexArray(vao);
+
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
@@ -63,6 +65,8 @@ int main()
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (const GLvoid*)0);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(GLfloat) * 6, (const GLvoid*)(sizeof(GLfloat) * 4));
+
+	glBindVertexArray(0);
 
 	DeepHTM::DeepHTM* deepHTM = nullptr;
 
@@ -98,7 +102,9 @@ int main()
 
 		window.clear();
 		
+		glBindVertexArray(vao);
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+		glBindVertexArray(0);
 
 		window.display();
 	}
