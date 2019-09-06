@@ -33,7 +33,6 @@ int main()
 
 	sf::Shader visualizer;
 	visualizer.loadFromFile("shaders/debug.vert", "shaders/debug.frag");
-	sf::Shader::bind(&visualizer);
 
 	GLfloat vertices[]
 	{
@@ -70,9 +69,13 @@ int main()
 
 	DeepHTM::DeepHTM* deepHTM = nullptr;
 
+	DeepHTM::Layer::Config config;
+	config.minibatchSize = 32;
+	config.learningRate = 1.f;
+
 	try
 	{
-		deepHTM = new DeepHTM::DeepHTM();
+		deepHTM = new DeepHTM::DeepHTM(config);
 	}
 	catch (const std::exception& exception)
 	{
@@ -101,7 +104,13 @@ int main()
 		}
 
 		window.clear();
-		
+
+		sf::Shader::bind(&visualizer);
+
+		glUniform2ui(0, 28, 28);
+		glUniform2ui(1, 10, 10);
+		deepHTM->GetSpatialPooler().GetWeights().Bind(0);
+
 		glBindVertexArray(vao);
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 		glBindVertexArray(0);

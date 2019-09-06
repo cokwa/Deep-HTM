@@ -7,25 +7,53 @@ namespace DeepHTM
 {
 	class DeepHTM
 	{
+	private:
+		Layer::SpatialPooler spatialPooler;
+
 	public:
-		DeepHTM()
+		DeepHTM(const Layer::Config& config) : spatialPooler(config, 28 * 28, 32, 32, 20)
 		{
-			Layer::Config config;
-			config.minibatchSize = 32;
-			config.learningRate = 1e-2f;
+			std::ifstream images("samples/train-images.idx3-ubyte", std::ifstream::binary);
+			if (!images)
+			{
+				throw std::runtime_error("images");
+			}
 
-			Layer::SpatialPooler* sp = new Layer::SpatialPooler(config, 100, 32, 32, 40);
+			std::ifstream labels("samples/train-labels.idx1-ubyte", std::ifstream::binary);
+			if (!labels)
+			{
+				throw std::runtime_error("labels");
+			}
 
-			GL::ShaderStorageBuffer<GLfloat> inputs((GLsizeiptr)sp->GetInputCount() * config.minibatchSize);
-			inputs.Randomize();
+			images.seekg(16, images.beg);
+			labels.seekg(8, labels.beg);
 
-			sp->Run(inputs);
-			
-			delete sp;
+			const GLuint inputWidth = 28, inputHeight = 28, inputCount = 60000;
+			const GLsizeiptr inputMinibatchSize = inputWidth * inputHeight * config.minibatchSize;
+
+			std::vector<GLubyte> buffer(inputWidth * inputHeight * inputCount);
+			images.read(reinterpret_cast<char*>(&buffer[0]), buffer.size());
+
+			GL::ShaderStorageBuffer<GLfloat> inputs(buffer.size());
+			auto nextPixel = buffer.begin();
+			inputs.SetData([&]() { return *(nextPixel++) / 255.f; });
+
+			images.close();
+			labels.close();
+
+			for (GLuint minibatch = 0; minibatch < 100; minibatch++)
+			{
+				spatialPooler.Run(inputs, minibatch * inputMinibatchSize, (minibatch + 1) * inputMinibatchSize);
+			}
 		}
 
 		virtual ~DeepHTM()
 		{
+		}
+
+		const Layer::SpatialPooler& GetSpatialPooler() const
+		{
+			return spatialPooler;
 		}
 	};
 }

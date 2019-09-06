@@ -1,6 +1,7 @@
 #version 430
 
 layout(location = 0) uniform uvec2 size;
+layout(location = 1) uniform uvec2 nums;
 
 layout(binding = 0) buffer Data
 {
@@ -13,5 +14,7 @@ out vec4 color;
 
 void main()
 {
-	color = vec4(data[uint(coord.x * (size.x - 1u)) + uint(coord.y * (size.y - 1u)) * size.x].xxx, 1.0);
+	uvec2 total = size * nums;
+	uvec2 local = uvec2(coord.x * total.x, (1.0 - coord.y) * total.y) % size, group = uvec2(coord.x * nums.x, (1.0 - coord.y) * nums.y);
+	color = vec4(data[(local.x + local.y * size.x) + (group.x + group.y * nums.x) * (size.x * size.y)].xxx * 0.001, 1.0);
 }

@@ -124,7 +124,7 @@ namespace DeepHTM
 				biases.Randomize();
 			}
 
-			SpatialPooler(const Config& config, GLuint inputCount, GLuint minicolumnsSizeX, GLuint minicolumnsSizeY, GLuint winnerMinicolumnCount) : SpatialPooler(config, inputCount, minicolumnsSizeX, minicolumnsSizeY, winnerMinicolumnCount, 0.9f, 1.f)
+			SpatialPooler(const Config& config, GLuint inputCount, GLuint minicolumnsSizeX, GLuint minicolumnsSizeY, GLuint winnerMinicolumnCount) : SpatialPooler(config, inputCount, minicolumnsSizeX, minicolumnsSizeY, winnerMinicolumnCount, 0.99f, 1.f)
 			{
 
 			}
@@ -164,6 +164,11 @@ namespace DeepHTM
 				return boostingWeight;
 			}
 
+			const GL::ShaderStorageBuffer<GLfloat>& GetWeights() const
+			{
+				return weights;
+			}
+
 			void SetDutyCycleInertia(GLfloat newDutyCycleInertia)
 			{
 				dutyCycleInertia = newDutyCycleInertia;
@@ -174,13 +179,13 @@ namespace DeepHTM
 				boostingWeight = newBoostingWeight;
 			}
 
-			void Run(const GL::ShaderStorageBuffer<float>& inputs)
+			void Run(const GL::ShaderStorageBuffer<float>& inputs, GLintptr inputsOffset, GLsizeiptr inputsLength)
 			{
 				fullyConnected.Use();
 				{
 					glUniform1ui(InputCount, inputCount);
 					
-					inputs.Bind(Inputs);
+					inputs.Bind(Inputs, inputsOffset, inputsLength);
 					minicolumns.Bind(Minicolumns);
 					weights.Bind(Weights);
 					biases.Bind(Biases);
@@ -219,7 +224,7 @@ namespace DeepHTM
 					glUniform1ui(InputCount, inputCount);
 
 					gradients.Bind(Gradients);
-					inputs.Bind(Inputs);
+					inputs.Bind(Inputs, inputsOffset, inputsLength);
 					weights.Bind(Weights);
 					biases.Bind(Biases);
 
@@ -227,7 +232,7 @@ namespace DeepHTM
 					glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 				}
 
-				auto minicolumnsData = minicolumns.GetData();
+				/*auto minicolumnsData = minicolumns.GetData();
 				auto masksData = minicolumnStates.GetData();
 
 				for (size_t i = 0; i < minicolumnsData.size(); i++)
@@ -235,7 +240,12 @@ namespace DeepHTM
 					std::cout << (masksData[i] ? minicolumnsData[i] : 0.f) << ' ';
 				}
 
-				std::cout << std::endl;
+				std::cout << std::endl;*/
+			}
+
+			void Run(const GL::ShaderStorageBuffer<GLfloat>& inputs)
+			{
+				Run(inputs, 0, inputs.GetLength());
 			}
 		};
 	}

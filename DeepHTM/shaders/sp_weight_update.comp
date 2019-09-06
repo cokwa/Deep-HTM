@@ -42,31 +42,31 @@ shared float localGradients[MINIBATCH_SIZE];
 
 void main()
 {
-	const uint minibatch = gl_LocalInvocationID.x;
+	const uint _sample = gl_LocalInvocationID.x;
 	const uint _input = gl_WorkGroupID.x;
-	const uint minicolumn = gl_WorkGroupID.y, minicolumnCount = gl_NumWorkGroups.y, globalMinicolumn = minibatch * minicolumnCount + minicolumn;
+	const uint minicolumn = gl_WorkGroupID.y, minicolumnCount = gl_NumWorkGroups.y, globalMinicolumn = _sample * minicolumnCount + minicolumn;
 	
 	if(gl_WorkGroupID.x < inputCount)
 	{
-		uint globalInput = minibatch * inputCount + _input;
-		localGradients[minibatch] = gradients[globalMinicolumn] * inputs[globalInput];
+		uint globalInput = _sample * inputCount + _input;
+		localGradients[_sample] = gradients[globalMinicolumn] * inputs[globalInput];
 	}
 	else
 	{
-		localGradients[minibatch] = gradients[globalMinicolumn];
+		localGradients[_sample] = gradients[globalMinicolumn];
 	}
 
 	for(uint stride = MINIBATCH_SIZE >> 1u; stride > 0u; stride >>= 1u)
 	{
 		barrier();
 
-		if(minibatch < stride)
+		if(_sample < stride)
 		{
-			localGradients[minibatch] += localGradients[minibatch + stride];
+			localGradients[_sample] += localGradients[_sample + stride];
 		}
 	}
 
-	if(minibatch == 0u)
+	if(_sample == 0u)
 	{
 		if(gl_WorkGroupID.x < inputCount)
 		{
