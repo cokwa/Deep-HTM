@@ -24,8 +24,10 @@
 
 int main()
 {
-	sf::RenderWindow window(sf::VideoMode(640, 480), "DeepHTM");
+	sf::RenderWindow window(sf::VideoMode(800, 800), "DeepHTM");
 	
+	window.setFramerateLimit(0);
+
 	if (!gladLoadGL())
 	{
 		throw std::exception();
@@ -67,20 +69,52 @@ int main()
 
 	glBindVertexArray(0);
 
-	DeepHTM::DeepHTM* deepHTM = nullptr;
+	//DeepHTM::DeepHTM* deepHTM = nullptr;
+	DeepHTM::Layer::SpatialPooler* spatialPooler = nullptr;
 
 	DeepHTM::Layer::Config config;
 	config.minibatchSize = 32;
-	config.learningRate = 1.f;
+	config.learningRate = 1e-2f;
 
 	try
 	{
-		deepHTM = new DeepHTM::DeepHTM(config);
+		//deepHTM = new DeepHTM::DeepHTM(config);
+		spatialPooler = new DeepHTM::Layer::SpatialPooler(config, 28 * 28, 32, 32, 20);
 	}
 	catch (const std::exception& exception)
 	{
 		std::cout << exception.what() << std::endl;
 	}
+
+	std::ifstream images("samples/train-images.idx3-ubyte", std::ifstream::binary);
+	if (!images)
+	{
+		throw std::runtime_error("images");
+	}
+
+	std::ifstream labels("samples/train-labels.idx1-ubyte", std::ifstream::binary);
+	if (!labels)
+	{
+		throw std::runtime_error("labels");
+	}
+
+	images.seekg(16, images.beg);
+	labels.seekg(8, labels.beg);
+
+	const GLuint inputWidth = 28, inputHeight = 28, inputCount = 60000;
+	const GLsizeiptr inputMinibatchSize = inputWidth * inputHeight * config.minibatchSize;
+
+	std::vector<GLubyte> buffer(inputWidth* inputHeight* inputCount);
+	images.read(reinterpret_cast<char*>(&buffer[0]), buffer.size());
+
+	DeepHTM::GL::ShaderStorageBuffer<GLfloat> inputs(buffer.size());
+	auto nextPixel = buffer.begin();
+	inputs.SetData([&]() { return *(nextPixel++) / 255.f; });
+
+	images.close();
+	labels.close();
+
+	size_t minibatch = 0;
 
 	while (window.isOpen())
 	{
@@ -103,13 +137,37 @@ int main()
 			}
 		}
 
+		spatialPooler->Run(inputs, minibatch * inputMinibatchSize, (minibatch + 1) * inputMinibatchSize);
+		minibatch = (minibatch + 1) % (inputCount / config.minibatchSize);
+
+		static GLuint iteration = 0;
+
+		if (iteration++ % 100 == 0)
+		{
+			GLfloat mean = 0.f, sqrMean = 0.f;
+
+			for (GLfloat dutyCycle : spatialPooler->GetDutyCycles().GetData())
+			{
+				mean += dutyCycle;
+				sqrMean += dutyCycle * dutyCycle;
+			}
+
+			mean /= spatialPooler->GetTotalMinicolumnCount();
+			sqrMean /= spatialPooler->GetTotalMinicolumnCount();
+
+			std::cout << mean << ' ' << sqrMean - mean * mean << std::endl;
+		}
+
 		window.clear();
 
 		sf::Shader::bind(&visualizer);
 
 		glUniform2ui(0, 28, 28);
-		glUniform2ui(1, 10, 10);
-		deepHTM->GetSpatialPooler().GetWeights().Bind(0);
+		//glUniform2ui(0, 1, 1);
+		glUniform2ui(1, 32, 32);
+		//deepHTM->GetSpatialPooler().GetWeights().Bind(0);
+		spatialPooler->GetWeights().Bind(0);
+		//spatialPooler->GetDutyCycles().Bind(0);
 
 		glBindVertexArray(vao);
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -118,9 +176,14 @@ int main()
 		window.display();
 	}
 
-	if (deepHTM != nullptr)
+	/*if (deepHTM != nullptr)
 	{
 		delete deepHTM;
+	}*/
+
+	if (spatialPooler != nullptr)
+	{
+		delete spatialPooler;
 	}
 
 	glDeleteVertexArrays(1, &vao);

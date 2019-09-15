@@ -39,7 +39,8 @@ namespace DeepHTM
 				Sparsity,
 				DutyCycleInertia,
 				BoostingWeight,
-				LearningRate
+				LearningRate,
+				Iteration
 			};
 
 			enum Binding
@@ -65,8 +66,10 @@ namespace DeepHTM
 
 			GL::ComputeShader fullyConnected, kWinner, boosting, weightUpdate;
 
+			GLuint iteration;
+
 		public:
-			SpatialPooler(const Config& config, GLuint inputCount, GLuint minicolumnsSizeX, GLuint minicolumnsSizeY, GLuint winnerMinicolumnCount, GLfloat dutyCycleInertia, GLfloat boostingWeight) : config(config), inputCount(inputCount), minicolumnsSizeX(minicolumnsSizeX), minicolumnsSizeY(minicolumnsSizeY), minicolumnCount(minicolumnsSizeX * minicolumnsSizeY), winnerMinicolumnCount(winnerMinicolumnCount), totalMinicolumnCount((GLsizeiptr)minicolumnCount * config.minibatchSize), sparsity(static_cast<GLfloat>(winnerMinicolumnCount) / minicolumnCount), dutyCycleInertia(dutyCycleInertia), boostingWeight(boostingWeight), minicolumns(totalMinicolumnCount), dutyCycles(totalMinicolumnCount), gradients(totalMinicolumnCount), weights((GLsizeiptr)inputCount * minicolumnCount), biases(minicolumnCount), minicolumnStates(totalMinicolumnCount), winnerMinicolumns((GLsizeiptr)winnerMinicolumnCount * config.minibatchSize),
+			SpatialPooler(const Config& config, GLuint inputCount, GLuint minicolumnsSizeX, GLuint minicolumnsSizeY, GLuint winnerMinicolumnCount, GLfloat dutyCycleInertia, GLfloat boostingWeight) : config(config), inputCount(inputCount), minicolumnsSizeX(minicolumnsSizeX), minicolumnsSizeY(minicolumnsSizeY), minicolumnCount(minicolumnsSizeX * minicolumnsSizeY), winnerMinicolumnCount(winnerMinicolumnCount), totalMinicolumnCount(minicolumnCount * config.minibatchSize), sparsity(static_cast<GLfloat>(winnerMinicolumnCount) / minicolumnCount), dutyCycleInertia(dutyCycleInertia), boostingWeight(boostingWeight), minicolumns(totalMinicolumnCount), dutyCycles(totalMinicolumnCount), gradients(totalMinicolumnCount), weights(inputCount * minicolumnCount), biases(minicolumnCount), minicolumnStates(totalMinicolumnCount), winnerMinicolumns(winnerMinicolumnCount * config.minibatchSize),
 				fullyConnected
 				(
 					"shaders/sp_fully_connected.comp",
@@ -98,7 +101,8 @@ namespace DeepHTM
 					"#define EXTERNAL_PARAMETERS\n"
 					"#define SPARSITY_LOCATION " + std::to_string(Sparsity) + "\n"
 					"#define DUTY_CYCLE_INERTIA_LOCATION " + std::to_string(DutyCycleInertia) + "\n"
-					"#define BOOSTING_WEIGHT " + std::to_string(BoostingWeight) + "\n"
+					"#define BOOSTING_WEIGHT_LOCATION " + std::to_string(BoostingWeight) + "\n"
+					"#define ITERATION_LOCATION " + std::to_string(Iteration) + "\n"
 					"#define DUTY_CYCLES_BINDING " + std::to_string(DutyCycles) + "\n"
 					"#define MINICOLUMN_STATES_BINDING " + std::to_string(MinicolumnStates) + "\n"
 					"#define GRADIENTS_BINDING " + std::to_string(Gradients) + "\n"
@@ -116,12 +120,17 @@ namespace DeepHTM
 					"#define WEIGHTS_BINDING " + std::to_string(Weights) + "\n"
 					"#define BIASES_BINDING " + std::to_string(Biases) + "\n"
 					"#define MINIBATCH_SIZE " + std::to_string(config.minibatchSize) + "\n"
-				}
+				},
+				iteration(0u)
 			{
 				dutyCycles.SetData([=]() { return sparsity; });
 
 				weights.Randomize();
 				biases.Randomize();
+
+				//biases.SetData([]() { return 0.f; });
+
+				gradients.SetData([]() { return 0.f; });
 			}
 
 			SpatialPooler(const Config& config, GLuint inputCount, GLuint minicolumnsSizeX, GLuint minicolumnsSizeY, GLuint winnerMinicolumnCount) : SpatialPooler(config, inputCount, minicolumnsSizeX, minicolumnsSizeY, winnerMinicolumnCount, 0.99f, 1.f)
@@ -154,6 +163,11 @@ namespace DeepHTM
 				return minicolumnCount;
 			}
 
+			GLuint GetTotalMinicolumnCount() const
+			{
+				return totalMinicolumnCount;
+			}
+
 			GLfloat GetDutyCycleInertia() const
 			{
 				return dutyCycleInertia;
@@ -162,6 +176,11 @@ namespace DeepHTM
 			GLfloat GetBoostingWeight() const
 			{
 				return boostingWeight;
+			}
+
+			const GL::ShaderStorageBuffer<GLfloat>& GetDutyCycles() const
+			{
+				return dutyCycles;
 			}
 
 			const GL::ShaderStorageBuffer<GLfloat>& GetWeights() const
@@ -209,6 +228,7 @@ namespace DeepHTM
 					glUniform1f(Sparsity, sparsity);
 					glUniform1f(DutyCycleInertia, dutyCycleInertia);
 					glUniform1f(BoostingWeight, boostingWeight);
+					glUniform1ui(Iteration, ++iteration);
 
 					dutyCycles.Bind(DutyCycles);
 					minicolumnStates.Bind(MinicolumnStates);

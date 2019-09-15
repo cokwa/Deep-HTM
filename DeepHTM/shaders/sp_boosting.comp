@@ -3,7 +3,8 @@
 #ifndef EXTERNAL_PARAMETERS
 	#define SPARSITY_LOCATION 0
 	#define DUTY_CYCLE_INERTIA_LOCATION 1
-	#define BOOSTING_WEIGHT 2
+	#define BOOSTING_WEIGHT_LOCATION 2
+	#define ITERATION_LOCATION 3
 
 	#define DUTY_CYCLES_BINDING 0
 	#define MINICOLUMN_STATES_BINDING 1
@@ -15,7 +16,9 @@
 layout(location = SPARSITY_LOCATION) uniform float sparsity;
 
 layout(location = DUTY_CYCLE_INERTIA_LOCATION) uniform float dutyCycleInertia;
-layout(location = BOOSTING_WEIGHT) uniform float boostingWeight;
+layout(location = BOOSTING_WEIGHT_LOCATION) uniform float boostingWeight;
+
+layout(location = ITERATION_LOCATION) uniform uint iteration;
 
 layout(binding = DUTY_CYCLES_BINDING) buffer DutyCycles
 {
