@@ -87,6 +87,7 @@ namespace DeepHTM
 
 					"#define EXTERNAL_PARAMETERS\n"
 					"#define MINICOLUMNS_BINDING " + std::to_string(Minicolumns) + "\n"
+					"#define DUTY_CYCLES_BINDING " + std::to_string(DutyCycles) + "\n"
 					"#define MINICOLUMN_STATES_BINDING " + std::to_string(MinicolumnStates) + "\n"
 					"#define WINNER_MINICOLUMNS_BINDING " + std::to_string(WinnerMinicolumns) + "\n"
 					"#define MINICOLUMNS_SIZE_X " + std::to_string(minicolumnsSizeX) + "\n"
@@ -215,7 +216,10 @@ namespace DeepHTM
 
 				kWinner.Use();
 				{
+					glUniform1f(Sparsity, sparsity);
+
 					minicolumns.Bind(Minicolumns);
+					dutyCycles.Bind(DutyCycles);
 					minicolumnStates.Bind(MinicolumnStates);
 					winnerMinicolumns.Bind(WinnerMinicolumns);
 

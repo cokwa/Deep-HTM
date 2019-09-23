@@ -1,9 +1,12 @@
 #version 430
 
 #ifndef EXTERNAL_PARAMETERS
+	#define SPARSITY_LOCATION 0
+
 	#define MINICOLUMNS_BINDING 0
-	#define MINICOLUMN_STATES_BINDING 1
-	#define WINNER_MINICOLUMNS_BINDING 2
+	#define DUTY_CYCLES_BINDING 1
+	#define MINICOLUMN_STATES_BINDING 2
+	#define WINNER_MINICOLUMNS_BINDING 3
 
 	#define MINICOLUMNS_SIZE_X 1u
 	#define MINICOLUMNS_SIZE_Y 1u
@@ -11,9 +14,16 @@
 	#define WINNER_MINICOLUMN_COUNT 1u
 #endif
 
+layout(location = SPARSITY_LOCATION) uniform float sparsity;
+
 layout(binding = MINICOLUMNS_BINDING) buffer Minicolumns
 {
 	float minicolumns[];
+};
+
+layout(binding = DUTY_CYCLES_BINDING) buffer DutyCycles
+{
+	float dutyCycles[];
 };
 
 layout(binding = MINICOLUMN_STATES_BINDING) buffer MinicolumnStates
@@ -31,6 +41,7 @@ layout(local_size_x = MINICOLUMNS_SIZE_X, local_size_y = MINICOLUMNS_SIZE_Y) in;
 
 //partially sorted
 shared uint sortedMinicolumns[MINICOLUMN_COUNT];
+shared float sortedMinicolumnActivations[MINICOLUMN_COUNT];
 
 //this is a mess
 
@@ -39,9 +50,11 @@ void main()
 	const uint workGroupIndex = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x;
 	const uint outputOffset = workGroupIndex * MINICOLUMN_COUNT;
 	const uint localOutput = gl_LocalInvocationIndex;
-	
-	sortedMinicolumns[localOutput] = outputOffset + localOutput;
-	minicolumnStates[outputOffset + localOutput] = 0u;
+	const uint globalOutput = outputOffset + localOutput;
+
+	sortedMinicolumns[localOutput] = globalOutput;
+	sortedMinicolumnActivations[localOutput] = exp(minicolumns[globalOutput]) * exp(dutyCycles[globalOutput]);
+	minicolumnStates[globalOutput] = 0u;
 
 	uint activeOffset = workGroupIndex * WINNER_MINICOLUMN_COUNT;
 	
@@ -51,11 +64,15 @@ void main()
 		{
 			barrier();
 
-			if(localActive <= localOutput && localOutput - localActive < stride && localOutput + stride < MINICOLUMN_COUNT && minicolumns[sortedMinicolumns[localOutput]] < minicolumns[sortedMinicolumns[localOutput + stride]])
+			if(localActive <= localOutput && localOutput - localActive < stride && localOutput + stride < MINICOLUMN_COUNT && sortedMinicolumnActivations[localOutput] < sortedMinicolumnActivations[localOutput + stride])
 			{
 				uint tmp = sortedMinicolumns[localOutput];
 				sortedMinicolumns[localOutput] = sortedMinicolumns[localOutput + stride];
 				sortedMinicolumns[localOutput + stride] = tmp;
+
+				float tmpActivation = sortedMinicolumnActivations[localOutput];
+				sortedMinicolumnActivations[localOutput] = sortedMinicolumnActivations[localOutput + stride];
+				sortedMinicolumnActivations[localOutput + stride] = tmpActivation;
 			}
 		}
 	}
