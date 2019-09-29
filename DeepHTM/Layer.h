@@ -86,6 +86,7 @@ namespace DeepHTM
 					"shaders/sp_k_winner.comp",
 
 					"#define EXTERNAL_PARAMETERS\n"
+					"#define SPARSITY_LOCATION " + std::to_string(Sparsity) + "\n"
 					"#define MINICOLUMNS_BINDING " + std::to_string(Minicolumns) + "\n"
 					"#define DUTY_CYCLES_BINDING " + std::to_string(DutyCycles) + "\n"
 					"#define MINICOLUMN_STATES_BINDING " + std::to_string(MinicolumnStates) + "\n"

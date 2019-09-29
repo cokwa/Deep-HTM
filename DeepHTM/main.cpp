@@ -109,6 +109,7 @@ int main()
 
 	DeepHTM::GL::ShaderStorageBuffer<GLfloat> inputs(buffer.size());
 	auto nextPixel = buffer.begin();
+	
 	inputs.SetData([&]() { return *(nextPixel++) / 255.f; });
 
 	images.close();
@@ -163,9 +164,8 @@ int main()
 		sf::Shader::bind(&visualizer);
 
 		glUniform2ui(0, 28, 28);
-		//glUniform2ui(0, 1, 1);
+		//glUniform2ui(0, 8, 4);
 		glUniform2ui(1, 32, 32);
-		//deepHTM->GetSpatialPooler().GetWeights().Bind(0);
 		spatialPooler->GetWeights().Bind(0);
 		//spatialPooler->GetDutyCycles().Bind(0);
 
