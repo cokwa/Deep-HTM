@@ -8,9 +8,7 @@
 	#define MINICOLUMN_STATES_BINDING 2
 	#define WINNER_MINICOLUMNS_BINDING 3
 
-	#define MINICOLUMNS_SIZE_X 1u
-	#define MINICOLUMNS_SIZE_Y 1u
-	#define MINICOLUMN_COUNT (MINICOLUMNS_SIZE_X * MINICOLUMNS_SIZE_Y)
+	#define MINICOLUMN_COUNT 1u
 	#define WINNER_MINICOLUMN_COUNT 1u
 #endif
 
@@ -37,7 +35,7 @@ layout(binding = WINNER_MINICOLUMNS_BINDING) buffer WinnerMinicolumns
 };
 
 //TODO: probably should someday change it to be constant
-layout(local_size_x = MINICOLUMNS_SIZE_X, local_size_y = MINICOLUMNS_SIZE_Y) in;
+layout(local_size_x = MINICOLUMN_COUNT) in;
 
 //partially sorted
 shared uint sortedMinicolumns[MINICOLUMN_COUNT];
@@ -53,7 +51,7 @@ void main()
 	const uint globalOutput = outputOffset + localOutput;
 
 	sortedMinicolumns[localOutput] = globalOutput;
-	sortedMinicolumnActivations[localOutput] = (minicolumns[globalOutput] + 1.0) * exp(100.0 * (sparsity - dutyCycles[globalOutput]));
+	sortedMinicolumnActivations[localOutput] = (max(minicolumns[globalOutput], 0.0) + 1.0) * exp(100.0 * (sparsity - dutyCycles[globalOutput]));
 	minicolumnStates[globalOutput] = 0u;
 
 	uint activeOffset = workGroupIndex * WINNER_MINICOLUMN_COUNT;
