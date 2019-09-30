@@ -1,17 +1,15 @@
 #version 430
 
 #ifndef EXTERNAL_PARAMETERS
-	//#define INPUT_COUNT_LOCATION 0
+	#define INPUT_COUNT_LOCATION 0
 	
 	#define INPUTS_BINDING 0
 	#define MINICOLUMNS_BINDING 1
 	#define WEIGHTS_BINDING 2
 	#define BIASES_BINDING 3
-
-	#define INPUT_COUNT 1u
 #endif
 
-//layout(location = INPUT_COUNT_LOCATION) uniform uint inputCount;
+layout(location = INPUT_COUNT_LOCATION) uniform uint inputCount;
 
 layout(binding = INPUTS_BINDING) buffer Inputs
 {
@@ -33,39 +31,19 @@ layout(binding = BIASES_BINDING) buffer Biases
 	float biases[];
 };
 
-layout(local_size_x = INPUT_COUNT) in;
-
-float localSums[INPUT_COUNT];
+layout(local_size_x = 1) in;
 
 void main()
 {
 	const uint globalOutput = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x;
-	const uint localInput = gl_LocalInvocationIndex;
-	uint localOutput = gl_WorkGroupID.x, inputOffset = gl_WorkGroupID.y * INPUT_COUNT;
-	
-	localSums[localInput] = weights[localInput + localOutput * INPUT_COUNT] * inputs[inputOffset + localInput];
+	uint localOutput = gl_WorkGroupID.x, inputOffset = gl_WorkGroupID.y * inputCount;
 
-	for(uint stride = INPUT_COUNT << 1u; stride > 0u; stride <<= 1u)
+	float _output = biases[localOutput];
+
+	for(uint localInput = 0u; localInput < inputCount; localInput++)
 	{
-		barrier();
-
-		if(localInput < stride)
-		{
-			localSums[localInput] += localSums[localInput + stride];
-		}
+		_output += weights[localInput + localOutput * inputCount] * inputs[inputOffset + localInput];
 	}
 
-	if(localInput == 0u)
-	{
-		minicolumns[globalOutput] = localSums[0] + biases[localOutput];
-	}
-
-//	float _output = biases[localOutput];
-//
-//	for(uint localInput = 0u; localInput < inputCount; localInput++)
-//	{
-//		_output += weights[localInput + localOutput * inputCount] * inputs[inputOffset + localInput];
-//	}
-//
-//	minicolumns[globalOutput] = _output;
+	minicolumns[globalOutput] = max(_output, 0.0);
 }
