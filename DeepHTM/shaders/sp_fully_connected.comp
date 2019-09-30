@@ -35,7 +35,7 @@ layout(binding = BIASES_BINDING) buffer Biases
 
 layout(local_size_x = INPUT_COUNT) in;
 
-float localSums[INPUT_COUNT];
+shared float localSums[INPUT_COUNT];
 
 void main()
 {
@@ -45,7 +45,7 @@ void main()
 	
 	localSums[localInput] = weights[localInput + localOutput * INPUT_COUNT] * inputs[inputOffset + localInput];
 
-	for(uint stride = INPUT_COUNT << 1u; stride > 0u; stride <<= 1u)
+	for(uint stride = INPUT_COUNT >> 1u; stride > 0u; stride >>= 1u)
 	{
 		barrier();
 
@@ -59,13 +59,4 @@ void main()
 	{
 		minicolumns[globalOutput] = localSums[0] + biases[localOutput];
 	}
-
-//	float _output = biases[localOutput];
-//
-//	for(uint localInput = 0u; localInput < inputCount; localInput++)
-//	{
-//		_output += weights[localInput + localOutput * inputCount] * inputs[inputOffset + localInput];
-//	}
-//
-//	minicolumns[globalOutput] = _output;
 }
