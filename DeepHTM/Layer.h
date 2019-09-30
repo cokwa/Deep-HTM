@@ -174,6 +174,11 @@ namespace DeepHTM
 				return boostingWeight;
 			}
 
+			const GL::ShaderStorageBuffer<GLfloat>& GetMinicolumns() const
+			{
+				return minicolumns;
+			}
+
 			const GL::ShaderStorageBuffer<GLfloat>& GetDutyCycles() const
 			{
 				return dutyCycles;

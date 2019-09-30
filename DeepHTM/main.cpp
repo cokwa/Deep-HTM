@@ -116,7 +116,7 @@ int main()
 	labels.close();
 
 	size_t minibatch = 0;
-	bool showWeights = true;
+	int mode = 0;
 
 	while (window.isOpen())
 	{
@@ -133,8 +133,11 @@ int main()
 					window.close();
 					break;
 
-				case sf::Keyboard::Space:
-					showWeights = !showWeights;
+				default:
+					if (sf::Keyboard::Num1 <= event.key.code && event.key.code <= sf::Keyboard::Num9)
+					{
+						mode = event.key.code - sf::Keyboard::Num1;
+					}
 					break;
 				}
 				break;
@@ -152,7 +155,7 @@ int main()
 			}
 		}
 
-		spatialPooler->Run(inputs, minibatch * inputMinibatchSize, (minibatch + 1) * inputMinibatchSize);
+		spatialPooler->Run(inputs, minibatch * inputMinibatchSize, inputMinibatchSize);
 		minibatch = (minibatch + 1) % (inputCount / config.minibatchSize);
 
 		static GLuint iteration = 0;
@@ -180,14 +183,18 @@ int main()
 		int minicolumnsWidth = 1 << (int)ceilf(log2f(sqrtf(spatialPooler->GetMinicolumnCount())));
 		int minicolumnsHeight = spatialPooler->GetMinicolumnCount() / minicolumnsWidth;
 
-		if (showWeights)
+		switch (mode)
+		{
+		case 0:
 		{
 			glUniform2ui(0, 28, 28);
 			glUniform2ui(1, minicolumnsWidth, minicolumnsHeight);
 			glUniform2f(2, 1.f, 0.f);
 			spatialPooler->GetWeights().Bind(0);
+			break;
 		}
-		else
+
+		case 1:
 		{
 			int minibatchWidth = 1 << (int)ceilf(log2f(sqrtf(config.minibatchSize)));
 			int minibatchHeight = config.minibatchSize / minibatchWidth;
@@ -195,6 +202,19 @@ int main()
 			glUniform2ui(1, minibatchWidth, minibatchHeight);
 			glUniform2f(2, 50.f, -50.f * spatialPooler->GetSparsity());
 			spatialPooler->GetDutyCycles().Bind(0);
+			break;
+		}
+
+		case 2:
+		{
+			int minibatchWidth = 1 << (int)ceilf(log2f(sqrtf(config.minibatchSize)));
+			int minibatchHeight = config.minibatchSize / minibatchWidth;
+			glUniform2ui(0, minicolumnsWidth, minicolumnsHeight);
+			glUniform2ui(1, minibatchWidth, minibatchHeight);
+			glUniform2f(2, 0.01f, 0.f);
+			spatialPooler->GetMinicolumns().Bind(0);
+			break;
+		}
 		}
 
 		glBindVertexArray(vao);

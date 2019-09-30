@@ -51,7 +51,7 @@ void main()
 	const uint globalOutput = outputOffset + localOutput;
 
 	sortedMinicolumns[localOutput] = globalOutput;
-	sortedMinicolumnActivations[localOutput] = (max(minicolumns[globalOutput], 0.0) + 1.0) * exp(100.0 * (sparsity - dutyCycles[globalOutput]));
+	sortedMinicolumnActivations[localOutput] = (max(minicolumns[globalOutput], 0.0) + 1.0) * exp(10.0 * (sparsity - dutyCycles[globalOutput]));
 	minicolumnStates[globalOutput] = 0u;
 
 	uint activeOffset = workGroupIndex * WINNER_MINICOLUMN_COUNT;
