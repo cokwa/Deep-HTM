@@ -11,7 +11,7 @@ namespace DeepHTM
 		Layer::SpatialPooler spatialPooler;
 
 	public:
-		DeepHTM(const Layer::Config& config) : spatialPooler(config, 28 * 28, 32, 32, 20)
+		DeepHTM(const Layer::Config& config) : spatialPooler(config, 28 * 28, 1024, 20)
 		{
 			std::ifstream images("samples/train-images.idx3-ubyte", std::ifstream::binary);
 			if (!images)

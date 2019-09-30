@@ -79,7 +79,7 @@ int main()
 	try
 	{
 		//deepHTM = new DeepHTM::DeepHTM(config);
-		spatialPooler = new DeepHTM::Layer::SpatialPooler(config, 28 * 28, 32, 32, 20);
+		spatialPooler = new DeepHTM::Layer::SpatialPooler(config, 28 * 28, 1024, 20);
 	}
 	catch (const std::exception& exception)
 	{
@@ -116,6 +116,7 @@ int main()
 	labels.close();
 
 	size_t minibatch = 0;
+	bool showWeights = true;
 
 	while (window.isOpen())
 	{
@@ -125,16 +126,29 @@ int main()
 		{
 			switch (event.type)
 			{
-				case sf::Event::Closed:
+			case sf::Event::KeyPressed:
+				switch (event.key.code)
+				{
+				case sf::Keyboard::Escape:
 					window.close();
 					break;
 
-				case sf::Event::Resized:
-				{
-					const sf::Vector2u windowSize = window.getSize();
-					glViewport(0, 0, windowSize.x, windowSize.y);
+				case sf::Keyboard::Space:
+					showWeights = !showWeights;
 					break;
 				}
+				break;
+
+			case sf::Event::Closed:
+				window.close();
+				break;
+
+			case sf::Event::Resized:
+			{
+				const sf::Vector2u windowSize = window.getSize();
+				glViewport(0, 0, windowSize.x, windowSize.y);
+				break;
+			}
 			}
 		}
 
@@ -162,12 +176,26 @@ int main()
 		window.clear();
 
 		sf::Shader::bind(&visualizer);
+		
+		int minicolumnsWidth = 1 << (int)ceilf(log2f(sqrtf(spatialPooler->GetMinicolumnCount())));
+		int minicolumnsHeight = spatialPooler->GetMinicolumnCount() / minicolumnsWidth;
 
-		glUniform2ui(0, 28, 28);
-		//glUniform2ui(0, 8, 4);
-		glUniform2ui(1, 32, 32);
-		spatialPooler->GetWeights().Bind(0);
-		//spatialPooler->GetDutyCycles().Bind(0);
+		if (showWeights)
+		{
+			glUniform2ui(0, 28, 28);
+			glUniform2ui(1, minicolumnsWidth, minicolumnsHeight);
+			glUniform2f(2, 1.f, 0.f);
+			spatialPooler->GetWeights().Bind(0);
+		}
+		else
+		{
+			int minibatchWidth = 1 << (int)ceilf(log2f(sqrtf(config.minibatchSize)));
+			int minibatchHeight = config.minibatchSize / minibatchWidth;
+			glUniform2ui(0, minicolumnsWidth, minicolumnsHeight);
+			glUniform2ui(1, minibatchWidth, minibatchHeight);
+			glUniform2f(2, 50.f, -50.f * spatialPooler->GetSparsity());
+			spatialPooler->GetDutyCycles().Bind(0);
+		}
 
 		glBindVertexArray(vao);
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
