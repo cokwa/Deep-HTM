@@ -180,7 +180,7 @@ int main()
 
 		sf::Shader::bind(&visualizer);
 		
-		int minicolumnsWidth = 1 << (int)ceilf(log2f(sqrtf(spatialPooler->GetMinicolumnCount())));
+		int minicolumnsWidth = 1 << (int)ceil(log2(sqrt(spatialPooler->GetMinicolumnCount())));
 		int minicolumnsHeight = spatialPooler->GetMinicolumnCount() / minicolumnsWidth;
 
 		switch (mode)
@@ -196,7 +196,7 @@ int main()
 
 		case 1:
 		{
-			int minibatchWidth = 1 << (int)ceilf(log2f(sqrtf(config.minibatchSize)));
+			int minibatchWidth = 1 << (int)ceil(log2(sqrt(config.minibatchSize)));
 			int minibatchHeight = config.minibatchSize / minibatchWidth;
 			glUniform2ui(0, minicolumnsWidth, minicolumnsHeight);
 			glUniform2ui(1, minibatchWidth, minibatchHeight);
@@ -207,7 +207,7 @@ int main()
 
 		case 2:
 		{
-			int minibatchWidth = 1 << (int)ceilf(log2f(sqrtf(config.minibatchSize)));
+			int minibatchWidth = 1 << (int)ceil(log2(sqrt(config.minibatchSize)));
 			int minibatchHeight = config.minibatchSize / minibatchWidth;
 			glUniform2ui(0, minicolumnsWidth, minicolumnsHeight);
 			glUniform2ui(1, minibatchWidth, minibatchHeight);

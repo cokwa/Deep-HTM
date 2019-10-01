@@ -7,8 +7,9 @@
 	#define ITERATION_LOCATION 3
 
 	#define DUTY_CYCLES_BINDING 0
-	#define MINICOLUMN_STATES_BINDING 1
-	#define GRADIENTS_BINDING 2
+	#define MINICOLUMNS_BINDING 1
+	#define MINICOLUMN_STATES_BINDING 2
+	#define GRADIENTS_BINDING 3
 
 	#define MINIBATCH_SIZE 1u
 #endif
@@ -23,6 +24,11 @@ layout(location = ITERATION_LOCATION) uniform uint iteration;
 layout(binding = DUTY_CYCLES_BINDING) buffer DutyCycles
 {
 	float dutyCycles[];
+};
+
+layout(binding = MINICOLUMNS_BINDING) buffer Minicolumns
+{
+	float minicolumns[];
 };
 
 layout(binding = MINICOLUMN_STATES_BINDING) buffer MinicolumnStates

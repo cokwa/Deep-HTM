@@ -44,16 +44,16 @@ void main()
 {
 	const uint _sample = gl_LocalInvocationID.x;
 	const uint _input = gl_WorkGroupID.x;
-	const uint minicolumn = gl_WorkGroupID.y, minicolumnCount = gl_NumWorkGroups.y, globalMinicolumn = _sample * minicolumnCount + minicolumn;
+	const uint _output = gl_WorkGroupID.y, outputCount = gl_NumWorkGroups.y, globalOutput = _sample * outputCount + _output;
 	
 	if(gl_WorkGroupID.x < inputCount)
 	{
 		uint globalInput = _sample * inputCount + _input;
-		localGradients[_sample] = gradients[globalMinicolumn] * inputs[globalInput];
+		localGradients[_sample] = gradients[globalOutput] * inputs[globalInput];
 	}
 	else
 	{
-		localGradients[_sample] = gradients[globalMinicolumn];
+		localGradients[_sample] = gradients[globalOutput];
 	}
 
 	for(uint stride = MINIBATCH_SIZE >> 1u; stride > 0u; stride >>= 1u)
@@ -68,13 +68,13 @@ void main()
 
 	if(_sample == 0u)
 	{
-		if(gl_WorkGroupID.x < inputCount)
+		if(_input < inputCount)
 		{
-			weights[gl_WorkGroupID.x + minicolumn * inputCount] -= learningRate * localGradients[0u];
+			weights[_input + _output * inputCount] -= learningRate * localGradients[0u];
 		}
 		else
 		{
-			biases[minicolumn] -= learningRate * localGradients[0u];
+			biases[_output] -= learningRate * localGradients[0u];
 		}
 	}
 }

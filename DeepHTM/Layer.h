@@ -29,6 +29,99 @@ namespace DeepHTM
 			}
 		};
 
+		class Dense : public Layer
+		{
+		private:
+			enum Location
+			{
+				InputCount,
+				LearningRate
+			};
+
+			enum Binding
+			{
+				Inputs,
+				Outputs,
+				Weights,
+				Biases,
+				Gradients
+			};
+
+			Config config;
+
+			GLuint inputCount, outputCount;
+			GLuint totalOutputCount;
+
+			GL::ShaderStorageBuffer<GLfloat> outputs, gradients;
+			GL::ShaderStorageBuffer<GLfloat> weights, biases;
+
+			GL::ComputeShader fullyConnected, weightUpdate;
+
+		public:
+			Dense(const Config& config, GLuint inputCount, GLuint outputCount) :
+				config(config),
+				inputCount(inputCount), outputCount(outputCount),
+				totalOutputCount(outputCount * config.minibatchSize),
+				outputs(totalOutputCount), gradients(totalOutputCount),
+				weights(inputCount * outputCount), biases(outputCount),
+				fullyConnected
+				(
+					"shaders/sp_fully_connected.comp",
+
+					"#define EXTERNAL_PARAMETERS\n"
+					"#define INPUTS_BINDING " + std::to_string(Inputs) + "\n"
+					"#define OUTPUTS_BINDING " + std::to_string(Outputs) + "\n"
+					"#define WEIGHTS_BINDING " + std::to_string(Weights) + "\n"
+					"#define BIASES_BINDING " + std::to_string(Biases) + "\n"
+					"#define INPUT_COUNT " + std::to_string(inputCount)
+				),
+				weightUpdate
+				{
+					"shaders/sp_weight_update.comp",
+
+					"#define EXTERNAL_PARAMETERS\n"
+					"#define LEARNING_RATE_LOCATION " + std::to_string(LearningRate) + "\n"
+					"#define INPUT_COUNT_LOCATION " + std::to_string(InputCount) + "\n"
+					"#define GRADIENTS_BINDING " + std::to_string(Gradients) + "\n"
+					"#define INPUTS_BINDING " + std::to_string(Inputs) + "\n"
+					"#define WEIGHTS_BINDING " + std::to_string(Weights) + "\n"
+					"#define BIASES_BINDING " + std::to_string(Biases) + "\n"
+					"#define MINIBATCH_SIZE " + std::to_string(config.minibatchSize) + "\n"
+				}
+			{
+				weights.Randomize();
+				biases.Randomize();
+			}
+
+			void Run(const GL::ShaderStorageBuffer<GLfloat>& inputs, GLintptr inputsOffset, GLsizeiptr inputsLength)
+			{
+				fullyConnected.Use();
+				{
+					inputs.Bind(Inputs, inputsOffset, inputsLength);
+					outputs.Bind(Outputs);
+					weights.Bind(Weights);
+					biases.Bind(Biases);
+
+					glDispatchCompute(outputCount, config.minibatchSize, 1);
+					glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+				}
+
+				weightUpdate.Use();
+				{
+					glUniform1f(LearningRate, config.learningRate);
+					glUniform1i(InputCount, inputCount);
+
+					gradients.Bind(Gradients);
+					inputs.Bind(Inputs, inputsOffset, inputsLength);
+					weights.Bind(Weights);
+					biases.Bind(Biases);
+
+					glDispatchCompute(inputCount + 1u, outputCount, 1);
+					glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+				}
+			}
+		};
+
 		class SpatialPooler : public Layer
 		{
 		private:
@@ -75,9 +168,8 @@ namespace DeepHTM
 					"shaders/sp_fully_connected.comp",
 
 					"#define EXTERNAL_PARAMETERS\n"
-					"#define INPUT_COUNT_LOCATION " + std::to_string(InputCount) + "\n"
 					"#define INPUTS_BINDING " + std::to_string(Inputs) + "\n"
-					"#define MINICOLUMNS_BINDING " + std::to_string(Minicolumns) + "\n"
+					"#define OUTPUTS_BINDING " + std::to_string(Minicolumns) + "\n"
 					"#define WEIGHTS_BINDING " + std::to_string(Weights) + "\n"
 					"#define BIASES_BINDING " + std::to_string(Biases) + "\n"
 					"#define INPUT_COUNT " + std::to_string(inputCount)
@@ -105,6 +197,7 @@ namespace DeepHTM
 					"#define BOOSTING_WEIGHT_LOCATION " + std::to_string(BoostingWeight) + "\n"
 					"#define ITERATION_LOCATION " + std::to_string(Iteration) + "\n"
 					"#define DUTY_CYCLES_BINDING " + std::to_string(DutyCycles) + "\n"
+					"#define MINICOLUMNS_BINDING " + std::to_string(Minicolumns) + "\n"
 					"#define MINICOLUMN_STATES_BINDING " + std::to_string(MinicolumnStates) + "\n"
 					"#define GRADIENTS_BINDING " + std::to_string(Gradients) + "\n"
 					"#define MINIBATCH_SIZE " + std::to_string(config.minibatchSize) + "\n"
@@ -203,8 +296,6 @@ namespace DeepHTM
 			{
 				fullyConnected.Use();
 				{
-					//glUniform1ui(InputCount, inputCount);
-					
 					inputs.Bind(Inputs, inputsOffset, inputsLength);
 					minicolumns.Bind(Minicolumns);
 					weights.Bind(Weights);
@@ -235,6 +326,7 @@ namespace DeepHTM
 					glUniform1ui(Iteration, ++iteration);
 
 					dutyCycles.Bind(DutyCycles);
+					minicolumns.Bind(Minicolumns);
 					minicolumnStates.Bind(MinicolumnStates);
 					gradients.Bind(Gradients);
 
