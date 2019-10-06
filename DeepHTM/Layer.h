@@ -17,8 +17,11 @@ namespace DeepHTM
 
 		class Layer
 		{
+		protected:
+			const Config* config;
+
 		public:
-			Layer()
+			Layer(const Config& config) : config(&config)
 			{
 
 			}
@@ -27,198 +30,131 @@ namespace DeepHTM
 			{
 
 			}
+
+			const Config& GetConfig() const
+			{
+				return *config;
+			}
 		};
 
-		class Dense : public Layer
+		class ReLU : public Layer
+		{
+		protected:
+			GLuint outputCount;
+
+			GL::ComputeShader evaluation, gradientEvaluation;
+
+		public:
+			ReLU(const Config& config, GLuint outputCount) :
+				Layer(config),
+				outputCount(outputCount),
+				evaluation("shaders/relu_evaluation.comp"),
+				gradientEvaluation("shaders/relu_gradient_evaluation.comp")
+			{
+
+			}
+
+			void Evaluate(GL::ShaderStorageBuffer<GLfloat>& outputs)
+			{
+				evaluation.Use();
+
+				outputs.Bind(0);
+
+				glDispatchCompute(outputCount, config->minibatchSize, 1);
+				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			}
+
+			void EvaluateGradients(const GL::ShaderStorageBuffer<GLfloat>& outputs, GL::ShaderStorageBuffer<GLfloat>& gradients)
+			{
+				gradientEvaluation.Use();
+
+				outputs.Bind(0);
+				gradients.Bind(1);
+
+				glDispatchCompute(outputCount, config->minibatchSize, 1);
+				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			}
+		};
+
+		class MSE : public Layer
 		{
 		private:
-			enum Location
+			GLuint outputCount;
+			
+			GL::ComputeShader gradientEvaluation;
+
+		public:
+			MSE(const Config& config, GLuint outputCount) :
+				Layer(config),
+				outputCount(outputCount),
+				gradientEvaluation("shaders/mse_gradient_evaluation.comp")
 			{
-				InputCount,
-				LearningRate
-			};
 
-			enum Binding
+			}
+
+			void EvaluateGradients(const GL::ShaderStorageBuffer<GLfloat>& targets, GLintptr targetsOffset, GL::ShaderStorageBuffer<GLfloat>& outputs, GL::ShaderStorageBuffer<GLfloat>& gradients)
 			{
-				Inputs,
-				Outputs,
-				Weights,
-				Biases,
-				Gradients
-			};
+				gradientEvaluation.Use();
 
-			Config config;
+				targets.Bind(0, targetsOffset, (GLsizeiptr)outputCount * config->minibatchSize);
+				outputs.Bind(1);
+				gradients.Bind(2);
 
+				glDispatchCompute(outputCount, config->minibatchSize, 1);
+				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			}
+		};
+
+		class Linear : public Layer
+		{
+		protected:
 			GLuint inputCount, outputCount;
 			GLuint totalOutputCount;
 
 			GL::ShaderStorageBuffer<GLfloat> outputs, gradients;
 			GL::ShaderStorageBuffer<GLfloat> weights, biases;
 
-			GL::ComputeShader fullyConnected, weightUpdate;
+			GL::ComputeShader evaluation, gradientEvaluation, update;
 
 		public:
-			Dense(const Config& config, GLuint inputCount, GLuint outputCount) :
-				config(config),
+			Linear(const Config& config, GLuint inputCount, GLuint outputCount) :
+				Layer(config),
 				inputCount(inputCount), outputCount(outputCount),
 				totalOutputCount(outputCount * config.minibatchSize),
 				outputs(totalOutputCount), gradients(totalOutputCount),
-				weights(inputCount * outputCount), biases(outputCount),
-				fullyConnected
+				weights((GLsizeiptr)inputCount * outputCount), biases(outputCount),
+				evaluation
 				(
-					"shaders/sp_fully_connected.comp",
+					"shaders/linear_evaluation.comp",
 
 					"#define EXTERNAL_PARAMETERS\n"
-					"#define INPUTS_BINDING " + std::to_string(Inputs) + "\n"
-					"#define OUTPUTS_BINDING " + std::to_string(Outputs) + "\n"
-					"#define WEIGHTS_BINDING " + std::to_string(Weights) + "\n"
-					"#define BIASES_BINDING " + std::to_string(Biases) + "\n"
-					"#define INPUT_COUNT " + std::to_string(inputCount)
+					"#define INPUTS_BINDING 0\n"
+					"#define OUTPUTS_BINDING 1\n"
+					"#define WEIGHTS_BINDING 2\n"
+					"#define BIASES_BINDING 3\n"
+					"#define INPUT_COUNT " + std::to_string(inputCount) + "\n"
 				),
-				weightUpdate
+				gradientEvaluation
 				{
-					"shaders/sp_weight_update.comp",
-
+					"shaders/linear_gradient_evaluation.comp",
+					
 					"#define EXTERNAL_PARAMETERS\n"
-					"#define LEARNING_RATE_LOCATION " + std::to_string(LearningRate) + "\n"
-					"#define INPUT_COUNT_LOCATION " + std::to_string(InputCount) + "\n"
-					"#define GRADIENTS_BINDING " + std::to_string(Gradients) + "\n"
-					"#define INPUTS_BINDING " + std::to_string(Inputs) + "\n"
-					"#define WEIGHTS_BINDING " + std::to_string(Weights) + "\n"
-					"#define BIASES_BINDING " + std::to_string(Biases) + "\n"
-					"#define MINIBATCH_SIZE " + std::to_string(config.minibatchSize) + "\n"
-				}
-			{
-				weights.Randomize();
-				biases.Randomize();
-			}
-
-			void Run(const GL::ShaderStorageBuffer<GLfloat>& inputs, GLintptr inputsOffset, GLsizeiptr inputsLength)
-			{
-				fullyConnected.Use();
-				{
-					inputs.Bind(Inputs, inputsOffset, inputsLength);
-					outputs.Bind(Outputs);
-					weights.Bind(Weights);
-					biases.Bind(Biases);
-
-					glDispatchCompute(outputCount, config.minibatchSize, 1);
-					glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-				}
-
-				weightUpdate.Use();
-				{
-					glUniform1f(LearningRate, config.learningRate);
-					glUniform1i(InputCount, inputCount);
-
-					gradients.Bind(Gradients);
-					inputs.Bind(Inputs, inputsOffset, inputsLength);
-					weights.Bind(Weights);
-					biases.Bind(Biases);
-
-					glDispatchCompute(inputCount + 1u, outputCount, 1);
-					glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-				}
-			}
-		};
-
-		class SpatialPooler : public Layer
-		{
-		private:
-			enum Location
-			{
-				InputCount,
-				MinicolumnCount,
-				Sparsity,
-				DutyCycleInertia,
-				BoostingWeight,
-				LearningRate,
-				Iteration
-			};
-
-			enum Binding
-			{
-				Inputs,
-				Minicolumns,
-				MinicolumnStates,
-				DutyCycles,
-				Gradients,
-				Weights,
-				Biases,
-				WinnerMinicolumns,
-			};
-
-			const Config& config;
-
-			const GLuint inputCount, minicolumnCount, winnerMinicolumnCount, totalMinicolumnCount;
-			const GLfloat sparsity;
-			GLfloat dutyCycleInertia, boostingWeight;
-
-			GL::ShaderStorageBuffer<GLfloat> minicolumns, dutyCycles, gradients, weights, biases;
-			GL::ShaderStorageBuffer<GLuint> minicolumnStates/*TODO: probably needs a better name like 'masks' or something*/, winnerMinicolumns;
-
-			GL::ComputeShader fullyConnected, kWinner, boosting, weightUpdate;
-
-			GLuint iteration;
-
-		public:
-			SpatialPooler(const Config& config, GLuint inputCount, GLuint minicolumnCount, GLuint winnerMinicolumnCount, GLfloat dutyCycleInertia, GLfloat boostingWeight) : config(config), inputCount(inputCount), minicolumnCount(minicolumnCount), winnerMinicolumnCount(winnerMinicolumnCount), totalMinicolumnCount(minicolumnCount * config.minibatchSize), sparsity(static_cast<GLfloat>(winnerMinicolumnCount) / minicolumnCount), dutyCycleInertia(dutyCycleInertia), boostingWeight(boostingWeight), minicolumns(totalMinicolumnCount), dutyCycles(totalMinicolumnCount), gradients(totalMinicolumnCount), weights(inputCount * minicolumnCount), biases(minicolumnCount), minicolumnStates(totalMinicolumnCount), winnerMinicolumns(winnerMinicolumnCount * config.minibatchSize),
-				fullyConnected
-				(
-					"shaders/sp_fully_connected.comp",
-
-					"#define EXTERNAL_PARAMETERS\n"
-					"#define INPUTS_BINDING " + std::to_string(Inputs) + "\n"
-					"#define OUTPUTS_BINDING " + std::to_string(Minicolumns) + "\n"
-					"#define WEIGHTS_BINDING " + std::to_string(Weights) + "\n"
-					"#define BIASES_BINDING " + std::to_string(Biases) + "\n"
-					"#define INPUT_COUNT " + std::to_string(inputCount)
-				),
-				kWinner
-				(
-					"shaders/sp_k_winner.comp",
-
-					"#define EXTERNAL_PARAMETERS\n"
-					"#define SPARSITY_LOCATION " + std::to_string(Sparsity) + "\n"
-					"#define MINICOLUMNS_BINDING " + std::to_string(Minicolumns) + "\n"
-					"#define DUTY_CYCLES_BINDING " + std::to_string(DutyCycles) + "\n"
-					"#define MINICOLUMN_STATES_BINDING " + std::to_string(MinicolumnStates) + "\n"
-					"#define WINNER_MINICOLUMNS_BINDING " + std::to_string(WinnerMinicolumns) + "\n"
-					"#define MINICOLUMN_COUNT " + std::to_string(minicolumnCount) + "\n"
-					"#define WINNER_MINICOLUMN_COUNT " + std::to_string(winnerMinicolumnCount)
-				),
-				boosting
-				(
-					"shaders/sp_boosting.comp",
-
-					"#define EXTERNAL_PARAMETERS\n"
-					"#define SPARSITY_LOCATION " + std::to_string(Sparsity) + "\n"
-					"#define DUTY_CYCLE_INERTIA_LOCATION " + std::to_string(DutyCycleInertia) + "\n"
-					"#define BOOSTING_WEIGHT_LOCATION " + std::to_string(BoostingWeight) + "\n"
-					"#define ITERATION_LOCATION " + std::to_string(Iteration) + "\n"
-					"#define DUTY_CYCLES_BINDING " + std::to_string(DutyCycles) + "\n"
-					"#define MINICOLUMNS_BINDING " + std::to_string(Minicolumns) + "\n"
-					"#define MINICOLUMN_STATES_BINDING " + std::to_string(MinicolumnStates) + "\n"
-					"#define GRADIENTS_BINDING " + std::to_string(Gradients) + "\n"
-					"#define MINIBATCH_SIZE " + std::to_string(config.minibatchSize) + "\n"
-				),
-				weightUpdate
-				{
-					"shaders/sp_weight_update.comp",
-
-					"#define EXTERNAL_PARAMETERS\n"
-					"#define LEARNING_RATE_LOCATION " + std::to_string(LearningRate) + "\n"
-					"#define INPUT_COUNT_LOCATION " + std::to_string(InputCount) + "\n"
-					"#define GRADIENTS_BINDING " + std::to_string(Gradients) + "\n"
-					"#define INPUTS_BINDING " + std::to_string(Inputs) + "\n"
-					"#define WEIGHTS_BINDING " + std::to_string(Weights) + "\n"
-					"#define BIASES_BINDING " + std::to_string(Biases) + "\n"
-					"#define MINIBATCH_SIZE " + std::to_string(config.minibatchSize) + "\n"
+					"#define OUTPUT_COUNT " + std::to_string(outputCount) + "\n"
 				},
-				iteration(0u)
-			{
-				dutyCycles.SetData([=]() { return sparsity; });
+				update
+				{
+					"shaders/linear_update.comp",
 
+					"#define EXTERNAL_PARAMETERS\n"
+					"#define LEARNING_RATE_LOCATION 0\n"
+					"#define INPUT_COUNT_LOCATION 1\n"
+					"#define GRADIENTS_BINDING 0\n"
+					"#define INPUTS_BINDING 1\n"
+					"#define WEIGHTS_BINDING 2\n"
+					"#define BIASES_BINDING 3\n"
+					"#define MINIBATCH_SIZE " + std::to_string(config.minibatchSize) + "\n"
+				}
+			{
 				weights.Randomize();
 				biases.Randomize();
 
@@ -227,29 +163,155 @@ namespace DeepHTM
 				gradients.SetData([]() { return 0.f; });
 			}
 
+			GLuint GetOutputCount() const
+			{
+				return outputCount;
+			}
+
+			GLuint GetTotalOutputCount() const
+			{
+				return totalOutputCount;
+			}
+
+			GL::ShaderStorageBuffer<GLfloat>& GetOutputs()
+			{
+				return outputs;
+			}
+
+			const GL::ShaderStorageBuffer<GLfloat>& GetOutputs() const
+			{
+				return outputs;
+			}
+
+			GL::ShaderStorageBuffer<GLfloat>& GetGradients()
+			{
+				return gradients;
+			}
+
+			const GL::ShaderStorageBuffer<GLfloat>& GetWeights() const
+			{
+				return weights;
+			}
+
+			void Evaluate(const GL::ShaderStorageBuffer<GLfloat>& inputs, GLintptr inputsOffset)
+			{
+				const GLsizeiptr inputsLength = (GLsizeiptr)inputCount * config->minibatchSize;
+
+				evaluation.Use();
+
+				inputs.Bind(0, inputsOffset, inputsLength);
+				outputs.Bind(1);
+				weights.Bind(2);
+				biases.Bind(3);
+
+				glDispatchCompute(outputCount, config->minibatchSize, 1);
+				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			}
+
+			void EvaluateGradients(GL::ShaderStorageBuffer<GLfloat>* inputGradients = nullptr)
+			{
+				if (inputGradients == nullptr)
+				{
+					return;
+				}
+
+				gradientEvaluation.Use();
+					
+				inputGradients->Bind(0);
+				gradients.Bind(1);
+				weights.Bind(2);
+
+				glDispatchCompute(inputCount, config->minibatchSize, 1);
+				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			}
+
+			void Update(const GL::ShaderStorageBuffer<GLfloat>& inputs, GLintptr inputsOffset)
+			{
+				const GLsizeiptr inputsLength = (GLsizeiptr)inputCount * config->minibatchSize;
+
+				update.Use();
+
+				glUniform1f(0, config->learningRate);
+				glUniform1ui(1, inputCount);
+
+				gradients.Bind(0);
+				inputs.Bind(1, inputsOffset, inputsLength);
+				weights.Bind(2);
+				biases.Bind(3);
+
+				glDispatchCompute(inputCount + 1u, outputCount, 1);
+				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			}
+		};
+
+		class SpatialPooler : public Linear
+		{
+		private:
+			GLuint winnerMinicolumnCount;
+			GLfloat sparsity;
+			GLfloat dutyCycleInertia, boostingWeight;
+
+			GL::ShaderStorageBuffer<GLfloat> dutyCycles;
+			GL::ShaderStorageBuffer<GLuint> minicolumnStates/*TODO: probably needs a better name like 'masks' or something*/, winnerMinicolumns;
+
+			GL::ComputeShader kWinner, boosting;
+
+			GLuint iteration;
+
+		public:
+			SpatialPooler(const Config& config, GLuint inputCount, GLuint minicolumnCount, GLuint winnerMinicolumnCount, GLfloat dutyCycleInertia, GLfloat boostingWeight) : 
+				Linear(config, inputCount, minicolumnCount),
+				winnerMinicolumnCount(winnerMinicolumnCount),
+				sparsity(static_cast<GLfloat>(winnerMinicolumnCount) / minicolumnCount),
+				dutyCycleInertia(dutyCycleInertia), boostingWeight(boostingWeight),
+				dutyCycles(totalOutputCount),
+				minicolumnStates(totalOutputCount), winnerMinicolumns((GLsizeiptr)winnerMinicolumnCount * config.minibatchSize),
+				kWinner
+				(
+					"shaders/sp_k_winner.comp",
+
+					"#define EXTERNAL_PARAMETERS\n"
+					"#define SPARSITY_LOCATION 0\n"
+					"#define MINICOLUMNS_BINDING 0\n"
+					"#define DUTY_CYCLES_BINDING 1\n"
+					"#define MINICOLUMN_STATES_BINDING 2\n"
+					"#define WINNER_MINICOLUMNS_BINDING 3\n"
+					"#define MINICOLUMN_COUNT " + std::to_string(minicolumnCount) + "\n"
+					"#define WINNER_MINICOLUMN_COUNT " + std::to_string(winnerMinicolumnCount)
+				),
+				boosting
+				(
+					"shaders/sp_boosting.comp",
+
+					"#define EXTERNAL_PARAMETERS\n"
+					"#define SPARSITY_LOCATION 0\n"
+					"#define DUTY_CYCLE_INERTIA_LOCATION 1\n"
+					"#define BOOSTING_WEIGHT_LOCATION 2\n"
+					"#define ITERATION_LOCATION 3\n"
+					"#define DUTY_CYCLES_BINDING 0\n"
+					"#define MINICOLUMNS_BINDING 1\n"
+					"#define MINICOLUMN_STATES_BINDING 2\n"
+					"#define GRADIENTS_BINDING 3\n"
+					"#define MINIBATCH_SIZE " + std::to_string(config.minibatchSize) + "\n"
+				),
+				iteration(0u)
+			{
+				dutyCycles.SetData([=]() { return sparsity; });
+			}
+
 			SpatialPooler(const Config& config, GLuint inputCount, GLuint minicolumnCount, GLuint winnerMinicolumnCount) : SpatialPooler(config, inputCount, minicolumnCount, winnerMinicolumnCount, 0.99f, 1.f)
 			{
 
 			}
 
-			const Config& GetConfig() const
-			{
-				return config;
-			}
-
-			GLuint GetInputCount() const
-			{
-				return inputCount;
-			}
-
 			GLuint GetMinicolumnCount() const
 			{
-				return minicolumnCount;
+				return outputCount;
 			}
 
 			GLuint GetTotalMinicolumnCount() const
 			{
-				return totalMinicolumnCount;
+				return totalOutputCount;
 			}
 
 			GLfloat GetSparsity() const
@@ -269,17 +331,12 @@ namespace DeepHTM
 
 			const GL::ShaderStorageBuffer<GLfloat>& GetMinicolumns() const
 			{
-				return minicolumns;
+				return outputs;
 			}
 
 			const GL::ShaderStorageBuffer<GLfloat>& GetDutyCycles() const
 			{
 				return dutyCycles;
-			}
-
-			const GL::ShaderStorageBuffer<GLfloat>& GetWeights() const
-			{
-				return weights;
 			}
 
 			void SetDutyCycleInertia(GLfloat newDutyCycleInertia)
@@ -292,76 +349,43 @@ namespace DeepHTM
 				boostingWeight = newBoostingWeight;
 			}
 
-			void Run(const GL::ShaderStorageBuffer<float>& inputs, GLintptr inputsOffset, GLsizeiptr inputsLength)
+			void Evaluate(const GL::ShaderStorageBuffer<float>& inputs, GLintptr inputsOffset)
 			{
-				fullyConnected.Use();
-				{
-					inputs.Bind(Inputs, inputsOffset, inputsLength);
-					minicolumns.Bind(Minicolumns);
-					weights.Bind(Weights);
-					biases.Bind(Biases);
+				Linear::Evaluate(inputs, inputsOffset);
 
-					glDispatchCompute(minicolumnCount, config.minibatchSize, 1);
-					glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-				}
+				const GLsizeiptr inputsLength = (GLsizeiptr)inputCount * config->minibatchSize;
 
 				kWinner.Use();
-				{
-					glUniform1f(Sparsity, sparsity);
 
-					minicolumns.Bind(Minicolumns);
-					dutyCycles.Bind(DutyCycles);
-					minicolumnStates.Bind(MinicolumnStates);
-					winnerMinicolumns.Bind(WinnerMinicolumns);
+				glUniform1f(0, sparsity);
 
-					glDispatchCompute(config.minibatchSize, 1, 1);
-					glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-				}
+				outputs.Bind(0);
+				dutyCycles.Bind(1);
+				minicolumnStates.Bind(2);
+				winnerMinicolumns.Bind(3);
 
-				boosting.Use();
-				{
-					glUniform1f(Sparsity, sparsity);
-					glUniform1f(DutyCycleInertia, dutyCycleInertia);
-					glUniform1f(BoostingWeight, boostingWeight);
-					glUniform1ui(Iteration, ++iteration);
-
-					dutyCycles.Bind(DutyCycles);
-					minicolumns.Bind(Minicolumns);
-					minicolumnStates.Bind(MinicolumnStates);
-					gradients.Bind(Gradients);
-
-					glDispatchCompute(minicolumnCount, config.minibatchSize, 1);
-					glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-				}
-
-				weightUpdate.Use();
-				{
-					glUniform1f(LearningRate, config.learningRate);
-					glUniform1ui(InputCount, inputCount);
-
-					gradients.Bind(Gradients);
-					inputs.Bind(Inputs, inputsOffset, inputsLength);
-					weights.Bind(Weights);
-					biases.Bind(Biases);
-
-					glDispatchCompute(inputCount + 1u, minicolumnCount, 1);
-					glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-				}
-
-				/*auto minicolumnsData = minicolumns.GetData();
-				auto masksData = minicolumnStates.GetData();
-
-				for (size_t i = 0; i < minicolumnsData.size(); i++)
-				{
-					std::cout << (masksData[i] ? minicolumnsData[i] : 0.f) << ' ';
-				}
-
-				std::cout << std::endl;*/
+				glDispatchCompute(config->minibatchSize, 1, 1);
+				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 			}
 
-			void Run(const GL::ShaderStorageBuffer<GLfloat>& inputs)
+			void EvaluateGradients(GL::ShaderStorageBuffer<GLfloat>* inputGradients = nullptr)
 			{
-				Run(inputs, 0, inputs.GetLength());
+				boosting.Use();
+
+				glUniform1f(0, sparsity);
+				glUniform1f(1, dutyCycleInertia);
+				glUniform1f(2, boostingWeight);
+				glUniform1ui(3, ++iteration);
+
+				dutyCycles.Bind(0);
+				outputs.Bind(1);
+				minicolumnStates.Bind(2);
+				gradients.Bind(3);
+
+				glDispatchCompute(outputCount, config->minibatchSize, 1);
+				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+				Linear::EvaluateGradients(inputGradients);
 			}
 		};
 	}

@@ -37,9 +37,14 @@ layout(binding = WINNER_MINICOLUMNS_BINDING) buffer WinnerMinicolumns
 //TODO: probably should someday change it to be constant
 layout(local_size_x = MINICOLUMN_COUNT) in;
 
+struct Candidate
+{
+	uint index;
+	float value;
+};
+
 //partially sorted
-shared uint sortedMinicolumns[MINICOLUMN_COUNT];
-shared float sortedMinicolumnActivations[MINICOLUMN_COUNT];
+shared Candidate sortedMinicolumns[MINICOLUMN_COUNT];
 
 //this is a mess
 
@@ -50,8 +55,7 @@ void main()
 	const uint localOutput = gl_LocalInvocationIndex;
 	const uint globalOutput = outputOffset + localOutput;
 
-	sortedMinicolumns[localOutput] = globalOutput;
-	sortedMinicolumnActivations[localOutput] = minicolumns[globalOutput] * exp(4.0 * (sparsity - dutyCycles[globalOutput]));
+	sortedMinicolumns[localOutput] = Candidate(globalOutput, minicolumns[globalOutput]);//(max(minicolumns[globalOutput], 0.0) + 1.0) * exp(4.0 * (sparsity - dutyCycles[globalOutput])));
 	minicolumnStates[globalOutput] = 0u;
 
 	uint activeOffset = workGroupIndex * WINNER_MINICOLUMN_COUNT;
@@ -62,23 +66,25 @@ void main()
 		{
 			barrier();
 
-			if(localActive <= localOutput && localOutput - localActive < stride && localOutput + stride < MINICOLUMN_COUNT && sortedMinicolumnActivations[localOutput] < sortedMinicolumnActivations[localOutput + stride])
+			if(localActive <= localOutput && localOutput - localActive < stride && localOutput + stride < MINICOLUMN_COUNT && sortedMinicolumns[localOutput].value < sortedMinicolumns[localOutput + stride].value)
 			{
-				uint tmp = sortedMinicolumns[localOutput];
+				Candidate tmp = sortedMinicolumns[localOutput];
 				sortedMinicolumns[localOutput] = sortedMinicolumns[localOutput + stride];
 				sortedMinicolumns[localOutput + stride] = tmp;
-
-				float tmpActivation = sortedMinicolumnActivations[localOutput];
-				sortedMinicolumnActivations[localOutput] = sortedMinicolumnActivations[localOutput + stride];
-				sortedMinicolumnActivations[localOutput + stride] = tmpActivation;
 			}
 		}
 	}
 
 	if(localOutput < WINNER_MINICOLUMN_COUNT)
 	{
-		uint winnerMinicolumn = sortedMinicolumns[localOutput];
+		uint winnerMinicolumn = sortedMinicolumns[localOutput].index;
 		minicolumnStates[winnerMinicolumn] = 1u;
 		winnerMinicolumns[activeOffset + localOutput] = winnerMinicolumn;
+	}
+
+	//TODO: temporary
+	else
+	{
+		minicolumns[sortedMinicolumns[localOutput].index] = 0.0;
 	}
 }

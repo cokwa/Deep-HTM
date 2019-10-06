@@ -13,7 +13,7 @@ namespace DeepHTM
 	public:
 		DeepHTM(const Layer::Config& config) : spatialPooler(config, 28 * 28, 1024, 20)
 		{
-			std::ifstream images("samples/train-images.idx3-ubyte", std::ifstream::binary);
+			/*std::ifstream images("samples/train-images.idx3-ubyte", std::ifstream::binary);
 			if (!images)
 			{
 				throw std::runtime_error("images");
@@ -44,7 +44,7 @@ namespace DeepHTM
 			for (GLuint minibatch = 0; minibatch < 100; minibatch++)
 			{
 				spatialPooler.Run(inputs, minibatch * inputMinibatchSize, (minibatch + 1) * inputMinibatchSize);
-			}
+			}*/
 		}
 
 		virtual ~DeepHTM()

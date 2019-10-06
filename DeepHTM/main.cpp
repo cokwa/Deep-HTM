@@ -69,17 +69,22 @@ int main()
 
 	glBindVertexArray(0);
 
-	//DeepHTM::DeepHTM* deepHTM = nullptr;
 	DeepHTM::Layer::SpatialPooler* spatialPooler = nullptr;
+	DeepHTM::Layer::Linear* linear = nullptr;
+	DeepHTM::Layer::MSE* mse = nullptr;
 
 	DeepHTM::Layer::Config config;
 	config.minibatchSize = 32;
 	config.learningRate = 1e-2f;
 
+	const GLuint inputWidth = 28, inputHeight = 28, inputCount = 60000;
+	const GLsizeiptr inputMinibatchSize = (GLsizeiptr)inputWidth * inputHeight * config.minibatchSize;
+
 	try
 	{
-		//deepHTM = new DeepHTM::DeepHTM(config);
-		spatialPooler = new DeepHTM::Layer::SpatialPooler(config, 28 * 28, 1024, 20);
+		spatialPooler = new DeepHTM::Layer::SpatialPooler(config, inputWidth * inputHeight, 1024, 20);
+		linear = new DeepHTM::Layer::Linear(config, spatialPooler->GetMinicolumnCount(), inputWidth * inputHeight);
+		mse = new DeepHTM::Layer::MSE(config, linear->GetOutputCount());
 	}
 	catch (const std::exception& exception)
 	{
@@ -101,10 +106,7 @@ int main()
 	images.seekg(16, images.beg);
 	labels.seekg(8, labels.beg);
 
-	const GLuint inputWidth = 28, inputHeight = 28, inputCount = 60000;
-	const GLsizeiptr inputMinibatchSize = inputWidth * inputHeight * config.minibatchSize;
-
-	std::vector<GLubyte> buffer(inputWidth* inputHeight* inputCount);
+	std::vector<GLubyte> buffer(inputWidth * inputHeight * inputCount);
 	images.read(reinterpret_cast<char*>(&buffer[0]), buffer.size());
 
 	DeepHTM::GL::ShaderStorageBuffer<GLfloat> inputs(buffer.size());
@@ -155,7 +157,18 @@ int main()
 			}
 		}
 
-		spatialPooler->Run(inputs, minibatch * inputMinibatchSize, inputMinibatchSize);
+		const GLsizeiptr inputsOffset = (GLsizeiptr)minibatch * inputMinibatchSize;
+
+		spatialPooler->Evaluate(inputs, inputsOffset);
+		linear->Evaluate(spatialPooler->GetOutputs(), 0);
+
+		mse->EvaluateGradients(inputs, inputsOffset, linear->GetOutputs(), linear->GetGradients());
+		linear->EvaluateGradients(&spatialPooler->GetGradients());
+		spatialPooler->EvaluateGradients();
+
+		linear->Update(spatialPooler->GetOutputs(), 0);
+		spatialPooler->Update(inputs, inputsOffset);
+
 		minibatch = (minibatch + 1) % (inputCount / config.minibatchSize);
 
 		static GLuint iteration = 0;
@@ -180,6 +193,9 @@ int main()
 
 		sf::Shader::bind(&visualizer);
 		
+		int minibatchWidth = 1 << (int)ceil(log2(sqrt(config.minibatchSize)));
+		int minibatchHeight = config.minibatchSize / minibatchWidth;
+
 		int minicolumnsWidth = 1 << (int)ceil(log2(sqrt(spatialPooler->GetMinicolumnCount())));
 		int minicolumnsHeight = spatialPooler->GetMinicolumnCount() / minicolumnsWidth;
 
@@ -187,7 +203,7 @@ int main()
 		{
 		case 0:
 		{
-			glUniform2ui(0, 28, 28);
+			glUniform2ui(0, inputWidth, inputHeight);
 			glUniform2ui(1, minicolumnsWidth, minicolumnsHeight);
 			glUniform2f(2, 1.f, 0.f);
 			spatialPooler->GetWeights().Bind(0);
@@ -196,8 +212,6 @@ int main()
 
 		case 1:
 		{
-			int minibatchWidth = 1 << (int)ceil(log2(sqrt(config.minibatchSize)));
-			int minibatchHeight = config.minibatchSize / minibatchWidth;
 			glUniform2ui(0, minicolumnsWidth, minicolumnsHeight);
 			glUniform2ui(1, minibatchWidth, minibatchHeight);
 			glUniform2f(2, 50.f, -50.f * spatialPooler->GetSparsity());
@@ -207,11 +221,9 @@ int main()
 
 		case 2:
 		{
-			int minibatchWidth = 1 << (int)ceil(log2(sqrt(config.minibatchSize)));
-			int minibatchHeight = config.minibatchSize / minibatchWidth;
 			glUniform2ui(0, minicolumnsWidth, minicolumnsHeight);
 			glUniform2ui(1, minibatchWidth, minibatchHeight);
-			glUniform2f(2, 0.01f, 0.f);
+			glUniform2f(2, 0.1f, 0.f);
 			spatialPooler->GetMinicolumns().Bind(0);
 			break;
 		}

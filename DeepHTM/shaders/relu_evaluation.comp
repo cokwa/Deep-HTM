@@ -1,0 +1,14 @@
+#version 430
+
+layout(binding = 0) buffer Outputs
+{
+	float outputs[];
+};
+
+layout(local_size_x = 1) in;
+
+void main()
+{
+	const uint globalOutput = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x;
+	outputs[globalOutput] = max(outputs[globalOutput], 0.0);
+}

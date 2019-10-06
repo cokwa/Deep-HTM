@@ -34,10 +34,19 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\sp_k_winner.comp">
+    <None Include="shaders\linear_update.comp">
       <Filter>리소스 파일</Filter>
     </None>
-    <None Include="shaders\sp_fully_connected.comp">
+    <None Include="shaders\relu_evaluation.comp">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="shaders\relu_gradient_evaluation.comp">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="shaders\sp_boosting.comp">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="shaders\sp_k_winner.comp">
       <Filter>리소스 파일</Filter>
     </None>
     <None Include="shaders\debug.frag">
@@ -46,10 +55,13 @@
     <None Include="shaders\debug.vert">
       <Filter>리소스 파일</Filter>
     </None>
-    <None Include="shaders\sp_boosting.comp">
+    <None Include="shaders\linear_evaluation.comp">
       <Filter>리소스 파일</Filter>
     </None>
-    <None Include="shaders\sp_weight_update.comp">
+    <None Include="shaders\linear_gradient_evaluation.comp">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="shaders\mse_gradient_evaluation.comp">
       <Filter>리소스 파일</Filter>
     </None>
   </ItemGroup>

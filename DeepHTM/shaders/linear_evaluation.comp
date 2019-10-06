@@ -36,8 +36,7 @@ shared float localSums[INPUT_COUNT];
 void main()
 {
 	const uint globalOutput = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x;
-	const uint localInput = gl_LocalInvocationIndex;
-	uint localOutput = gl_WorkGroupID.x, inputOffset = gl_WorkGroupID.y * INPUT_COUNT;
+	const uint localInput = gl_LocalInvocationIndex, localOutput = gl_WorkGroupID.x, inputOffset = gl_WorkGroupID.y * INPUT_COUNT;
 	
 	localSums[localInput] = weights[localInput + localOutput * INPUT_COUNT] * inputs[inputOffset + localInput];
 

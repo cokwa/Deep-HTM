@@ -195,9 +195,10 @@ namespace DeepHTM
 				glBindBufferRange(GL_SHADER_STORAGE_BUFFER, index, ssbo, offset * sizeof(T), length * sizeof(T));
 			}
 
-			void Randomize()
+			//TODO: generalize and parallelize
+			void Randomize(T range = (T)1.0)
 			{
-				SetData([]() { return static_cast<T>(rand() / (RAND_MAX * 0.5) - 1.0); });
+				SetData([=]() { return static_cast<T>(rand() / (RAND_MAX * 0.5) - 1.0) * range; });
 			}
 		};
 	}
