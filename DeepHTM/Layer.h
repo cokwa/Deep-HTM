@@ -76,6 +76,45 @@ namespace DeepHTM
 			}
 		};
 
+		class Sigmoid : public Layer
+		{
+		protected:
+			GLuint outputCount;
+
+			GL::ComputeShader evaluation, gradientEvaluation;
+
+		public:
+			Sigmoid(const Config& config, GLuint outputCount) :
+				Layer(config),
+				outputCount(outputCount),
+				evaluation("shaders/sigmoid_evaluation.comp"),
+				gradientEvaluation("shaders/sigmoid_gradient_evaluation.comp")
+			{
+
+			}
+
+			void Evaluate(GL::ShaderStorageBuffer<GLfloat>& outputs)
+			{
+				evaluation.Use();
+
+				outputs.Bind(0);
+
+				glDispatchCompute(outputCount, config->minibatchSize, 1);
+				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			}
+
+			void EvaluateGradients(const GL::ShaderStorageBuffer<GLfloat>& outputs, GL::ShaderStorageBuffer<GLfloat>& gradients)
+			{
+				gradientEvaluation.Use();
+
+				outputs.Bind(0);
+				gradients.Bind(1);
+
+				glDispatchCompute(outputCount, config->minibatchSize, 1);
+				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			}
+		};
+
 		class MSE : public Layer
 		{
 		private:

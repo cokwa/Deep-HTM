@@ -64,5 +64,11 @@
     <None Include="shaders\mse_gradient_evaluation.comp">
       <Filter>리소스 파일</Filter>
     </None>
+    <None Include="shaders\sigmoid_gradient_evaluation.comp">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="shaders\sigmoid_evaluation.comp">
+      <Filter>리소스 파일</Filter>
+    </None>
   </ItemGroup>
 </Project>

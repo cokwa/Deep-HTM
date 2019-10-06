@@ -147,6 +147,8 @@
     <None Include="shaders\mse_gradient_evaluation.comp" />
     <None Include="shaders\relu_evaluation.comp" />
     <None Include="shaders\relu_gradient_evaluation.comp" />
+    <None Include="shaders\sigmoid_evaluation.comp" />
+    <None Include="shaders\sigmoid_gradient_evaluation.comp" />
     <None Include="shaders\sp_boosting.comp" />
     <None Include="shaders\sp_k_winner.comp" />
   </ItemGroup>
