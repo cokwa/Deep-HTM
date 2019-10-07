@@ -180,8 +180,6 @@ namespace DeepHTM
 				weights.Randomize(range);
 				biases.Randomize(range);
 
-				std::cout << range << std::endl;
-
 				//biases.SetData([]() { return 0.f; });
 
 				gradients.SetData([]() { return 0.f; });

@@ -19,6 +19,9 @@ layout(local_size_x = 1) in;
 
 void main()
 {
-	const uint globalOutput = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x;
-	gradients[globalOutput] = outputs[globalOutput] - targets[globalOutput];
+	const uint outputCount = gl_NumWorkGroups.x, minibatchSize = gl_NumWorkGroups.y;
+	const uint localOutput = gl_WorkGroupID.x, minibatch = gl_WorkGroupID.y;
+	const uint globalOutput = localOutput + minibatch * outputCount;
+	
+	gradients[globalOutput] = (outputs[globalOutput] - targets[globalOutput]) / minibatchSize;
 }
