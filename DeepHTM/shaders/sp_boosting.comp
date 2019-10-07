@@ -8,7 +8,7 @@
 
 	#define DUTY_CYCLES_BINDING 0
 	#define MINICOLUMNS_BINDING 1
-	#define MINICOLUMN_STATES_BINDING 2
+	#define MASKS_BINDING 2
 	#define GRADIENTS_BINDING 3
 
 	#define MINIBATCH_SIZE 1u
@@ -31,9 +31,9 @@ layout(binding = MINICOLUMNS_BINDING) buffer Minicolumns
 	float minicolumns[];
 };
 
-layout(binding = MINICOLUMN_STATES_BINDING) buffer MinicolumnStates
+layout(binding = MASKS_BINDING) buffer Masks
 {
-	uint minicolumnStates[];
+	uint masks[];
 };
 
 layout(binding = GRADIENTS_BINDING) buffer Gradients
@@ -84,9 +84,9 @@ void main()
 
 	const uint minicolumn = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x;
 
-	float dutyCycle = mix(float(minicolumnStates[minicolumn]), dutyCycles[minicolumn], dutyCycleInertia);
+	float dutyCycle = mix(float(masks[minicolumn]), dutyCycles[minicolumn], dutyCycleInertia);
 	dutyCycles[minicolumn] = dutyCycle;
 
 	//TODO: replace the assignment
-	gradients[minicolumn] *= float(minicolumnStates[minicolumn]);// + boostingWeight * (-sparsity / dutyCycle + (1.0 - sparsity) / (1.0 - dutyCycle));
+	gradients[minicolumn] *= float(masks[minicolumn]);// + boostingWeight * (-sparsity / dutyCycle + (1.0 - sparsity) / (1.0 - dutyCycle));
 }

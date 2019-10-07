@@ -125,6 +125,7 @@ namespace DeepHTM
 			}
 		};
 
+		//TODO: maybe change its name to something like 'Transform'
 		class Linear : public Layer
 		{
 		protected:
@@ -175,8 +176,11 @@ namespace DeepHTM
 					"#define MINIBATCH_SIZE " + std::to_string(config.minibatchSize) + "\n"
 				}
 			{
-				weights.Randomize();
-				biases.Randomize();
+				const float range = sqrtf(2.f / inputCount);
+				weights.Randomize(range);
+				biases.Randomize(range);
+
+				std::cout << range << std::endl;
 
 				//biases.SetData([]() { return 0.f; });
 
@@ -267,8 +271,8 @@ namespace DeepHTM
 			GLfloat dutyCycleInertia, boostingWeight;
 
 			GL::ShaderStorageBuffer<GLfloat> dutyCycles;
-			GL::ShaderStorageBuffer<GLuint> minicolumnStates/*TODO: probably needs a better name like 'masks' or something*/, winnerMinicolumns;
-
+			GL::ShaderStorageBuffer<GLuint> winnerMinicolumns, masks;
+			
 			GL::ComputeShader kWinner, boosting;
 
 			GLuint iteration;
@@ -280,7 +284,7 @@ namespace DeepHTM
 				sparsity(static_cast<GLfloat>(winnerMinicolumnCount) / minicolumnCount),
 				dutyCycleInertia(dutyCycleInertia), boostingWeight(boostingWeight),
 				dutyCycles(totalOutputCount),
-				minicolumnStates(totalOutputCount), winnerMinicolumns((GLsizeiptr)winnerMinicolumnCount * config.minibatchSize),
+				winnerMinicolumns((GLsizeiptr)winnerMinicolumnCount * config.minibatchSize), masks(totalOutputCount),
 				kWinner
 				(
 					"shaders/sp_k_winner.comp",
@@ -289,7 +293,7 @@ namespace DeepHTM
 					"#define SPARSITY_LOCATION 0\n"
 					"#define MINICOLUMNS_BINDING 0\n"
 					"#define DUTY_CYCLES_BINDING 1\n"
-					"#define MINICOLUMN_STATES_BINDING 2\n"
+					"#define MASKS_BINDING 2\n"
 					"#define WINNER_MINICOLUMNS_BINDING 3\n"
 					"#define MINICOLUMN_COUNT " + std::to_string(minicolumnCount) + "\n"
 					"#define WINNER_MINICOLUMN_COUNT " + std::to_string(winnerMinicolumnCount)
@@ -305,7 +309,7 @@ namespace DeepHTM
 					"#define ITERATION_LOCATION 3\n"
 					"#define DUTY_CYCLES_BINDING 0\n"
 					"#define MINICOLUMNS_BINDING 1\n"
-					"#define MINICOLUMN_STATES_BINDING 2\n"
+					"#define MASKS_BINDING 2\n"
 					"#define GRADIENTS_BINDING 3\n"
 					"#define MINIBATCH_SIZE " + std::to_string(config.minibatchSize) + "\n"
 				),
@@ -376,7 +380,7 @@ namespace DeepHTM
 
 				outputs.Bind(0);
 				dutyCycles.Bind(1);
-				minicolumnStates.Bind(2);
+				masks.Bind(2);
 				winnerMinicolumns.Bind(3);
 
 				glDispatchCompute(config->minibatchSize, 1, 1);
@@ -394,7 +398,7 @@ namespace DeepHTM
 
 				dutyCycles.Bind(0);
 				outputs.Bind(1);
-				minicolumnStates.Bind(2);
+				masks.Bind(2);
 				gradients.Bind(3);
 
 				glDispatchCompute(outputCount, config->minibatchSize, 1);

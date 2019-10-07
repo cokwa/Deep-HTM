@@ -6,6 +6,7 @@
 #include<string>
 #include<functional>
 #include<fstream>
+#include<random>
 
 namespace DeepHTM
 {
@@ -203,7 +204,10 @@ namespace DeepHTM
 			//TODO: generalize and parallelize
 			void Randomize(T range = (T)1.0)
 			{
-				SetData([=]() { return static_cast<T>(rand() / (RAND_MAX * 0.5) - 1.0) * range; });
+				std::default_random_engine generator;
+				std::normal_distribution<T> distribution;
+
+				SetData([&]() { return distribution(generator) * range; });
 			}
 		};
 	}
