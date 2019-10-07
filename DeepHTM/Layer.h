@@ -37,7 +37,7 @@ namespace DeepHTM
 			}
 		};
 
-		class ReLU : public Layer
+		class Activation : public Layer
 		{
 		protected:
 			GLuint outputCount;
@@ -45,11 +45,11 @@ namespace DeepHTM
 			GL::ComputeShader evaluation, gradientEvaluation;
 
 		public:
-			ReLU(const Config& config, GLuint outputCount) :
+			Activation(const Config& config, GLuint outputCount, GL::ComputeShader&& evaluation, GL::ComputeShader&& gradientEvaluation) :
 				Layer(config),
 				outputCount(outputCount),
-				evaluation("shaders/relu_evaluation.comp"),
-				gradientEvaluation("shaders/relu_gradient_evaluation.comp")
+				evaluation(std::move(evaluation)),
+				gradientEvaluation(std::move(gradientEvaluation))
 			{
 
 			}
@@ -76,42 +76,23 @@ namespace DeepHTM
 			}
 		};
 
-		class Sigmoid : public Layer
+		class ReLU : public Activation
 		{
-		protected:
-			GLuint outputCount;
+		public:
+			ReLU(const Config& config, GLuint outputCount) :
+				Activation(config, outputCount, GL::ComputeShader("shaders/relu_evaluation.comp"), GL::ComputeShader("shaders/relu_gradient_evaluation.comp"))
+			{
 
-			GL::ComputeShader evaluation, gradientEvaluation;
+			}
+		};
 
+		class Sigmoid : public Activation
+		{
 		public:
 			Sigmoid(const Config& config, GLuint outputCount) :
-				Layer(config),
-				outputCount(outputCount),
-				evaluation("shaders/sigmoid_evaluation.comp"),
-				gradientEvaluation("shaders/sigmoid_gradient_evaluation.comp")
+				Activation(config, outputCount, GL::ComputeShader("shaders/sigmoid_evaluation.comp"), GL::ComputeShader("shaders/sigmoid_gradient_evaluation.comp"))
 			{
 
-			}
-
-			void Evaluate(GL::ShaderStorageBuffer<GLfloat>& outputs)
-			{
-				evaluation.Use();
-
-				outputs.Bind(0);
-
-				glDispatchCompute(outputCount, config->minibatchSize, 1);
-				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-			}
-
-			void EvaluateGradients(const GL::ShaderStorageBuffer<GLfloat>& outputs, GL::ShaderStorageBuffer<GLfloat>& gradients)
-			{
-				gradientEvaluation.Use();
-
-				outputs.Bind(0);
-				gradients.Bind(1);
-
-				glDispatchCompute(outputCount, config->minibatchSize, 1);
-				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 			}
 		};
 
@@ -247,16 +228,11 @@ namespace DeepHTM
 				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 			}
 
-			void EvaluateGradients(GL::ShaderStorageBuffer<GLfloat>* inputGradients = nullptr)
+			void EvaluateGradients(GL::ShaderStorageBuffer<GLfloat>& inputGradients)
 			{
-				if (inputGradients == nullptr)
-				{
-					return;
-				}
-
 				gradientEvaluation.Use();
 					
-				inputGradients->Bind(0);
+				inputGradients.Bind(0);
 				gradients.Bind(1);
 				weights.Bind(2);
 
@@ -407,7 +383,7 @@ namespace DeepHTM
 				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 			}
 
-			void EvaluateGradients(GL::ShaderStorageBuffer<GLfloat>* inputGradients = nullptr)
+			void EvaluateGradients()
 			{
 				boosting.Use();
 
@@ -423,6 +399,11 @@ namespace DeepHTM
 
 				glDispatchCompute(outputCount, config->minibatchSize, 1);
 				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			}
+
+			void EvaluateGradients(GL::ShaderStorageBuffer<GLfloat>& inputGradients)
+			{
+				EvaluateGradients();
 
 				Linear::EvaluateGradients(inputGradients);
 			}

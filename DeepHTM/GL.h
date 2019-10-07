@@ -81,6 +81,11 @@ namespace DeepHTM
 				}
 			}
 
+			ComputeShader(ComputeShader&& other) : program(other.program)
+			{
+				other.program = 0;
+			}
+
 			virtual ~ComputeShader()
 			{
 				if (program != 0)

@@ -163,11 +163,11 @@ int main()
 
 		spatialPooler->Evaluate(inputs, inputsOffset);
 		linear->Evaluate(spatialPooler->GetOutputs(), 0);
-		sigmoid->Evaluate(linear->GetOutputs());
+		//sigmoid->Evaluate(linear->GetOutputs());
 
 		mse->EvaluateGradients(inputs, inputsOffset, linear->GetOutputs(), linear->GetGradients());
-		sigmoid->EvaluateGradients(linear->GetOutputs(), linear->GetGradients());
-		linear->EvaluateGradients(&spatialPooler->GetGradients());
+		//sigmoid->EvaluateGradients(linear->GetOutputs(), linear->GetGradients());
+		linear->EvaluateGradients(spatialPooler->GetGradients());
 		spatialPooler->EvaluateGradients();
 
 		linear->Update(spatialPooler->GetOutputs(), 0);
@@ -240,10 +240,20 @@ int main()
 		window.display();
 	}
 
-	/*if (deepHTM != nullptr)
+	if (mse != nullptr)
 	{
-		delete deepHTM;
-	}*/
+		delete mse;
+	}
+
+	if (sigmoid != nullptr)
+	{
+		delete sigmoid;
+	}
+
+	if (linear != nullptr)
+	{
+		delete linear;
+	}
 
 	if (spatialPooler != nullptr)
 	{

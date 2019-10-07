@@ -33,6 +33,8 @@ void main()
 
 	for(uint stride = OUTPUT_COUNT >> 1u; stride > 0u; stride >>= 1u)
 	{
+		barrier();
+
 		if(localOutput < stride)
 		{
 			localSums[localOutput] += localSums[localOutput + stride];
@@ -41,6 +43,6 @@ void main()
 
 	if(localOutput == 0u)
 	{
-		inputGradients[globalOutput] = localSums[0u];
+		inputGradients[globalInput] = localSums[0u];
 	}
 }
