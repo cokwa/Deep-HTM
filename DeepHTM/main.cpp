@@ -76,7 +76,7 @@ int main()
 
 	DeepHTM::Layer::Config config;
 	config.minibatchSize = 32;
-	config.learningRate = 1e-1f;
+	config.learningRate = 1e-2f;
 
 	const GLuint inputWidth = 28, inputHeight = 28, inputCount = 60000;
 	const GLsizeiptr inputMinibatchSize = (GLsizeiptr)inputWidth * inputHeight * config.minibatchSize;
@@ -118,6 +118,87 @@ int main()
 
 	images.close();
 	labels.close();
+
+	{
+		using namespace DeepHTM::Layer;
+
+		Linear* layer1 = new Linear(config, inputWidth * inputHeight, 32);
+		ReLU* layer2 = new ReLU(config, 32);
+		Linear* layer3 = new Linear(config, 32, inputWidth * inputHeight);
+		MSE* layer4 = new MSE(config, inputWidth * inputHeight);
+
+		std::vector<GLfloat> data(layer3->GetGradients().GetLength());
+		GLfloat totalError = 0.f;
+
+		for (int iteration = 0; /*iteration < 10000*/; iteration++)
+		{
+			GLsizeiptr inputsOffset = (GLsizeiptr)(iteration % (inputCount / config.minibatchSize)) * inputMinibatchSize;
+			
+			layer1->Evaluate(inputs, inputsOffset);
+			layer2->Evaluate(layer1->GetOutputs());
+			layer3->Evaluate(layer1->GetOutputs(), 0);
+			
+			layer4->EvaluateGradients(inputs, inputsOffset, layer3->GetOutputs(), layer3->GetGradients());
+
+			layer3->GetGradients().GetData(data.begin());
+
+			for (GLfloat error : data)
+			{
+				totalError += pow(error, 2.f);
+			}
+
+			if (iteration % 100 == 99)
+			{
+				std::cout << 0.5f * totalError << std::endl;
+				totalError = 0.f;
+			}
+
+			layer3->EvaluateGradients(layer1->GetOutputs());
+			layer2->EvaluateGradients(layer1->GetOutputs(), layer1->GetGradients());
+
+			layer1->Update(inputs, inputsOffset);
+			layer3->Update(layer1->GetOutputs(), 0);
+
+			sf::Event event;
+			if (window.pollEvent(event))
+			{
+				switch (event.type)
+				{
+				case sf::Event::Closed:
+					exit(0);
+					break;
+
+				case sf::Event::KeyPressed:
+					if (event.key.code == sf::Keyboard::Escape)
+					{
+						exit(0);
+					}
+					break;
+				case sf::Event::Resized:
+				{
+					const sf::Vector2u windowSize = window.getSize();
+					glViewport(0, 0, windowSize.x, windowSize.y);
+					break;
+				}
+				}
+			}
+
+			window.clear();
+
+			sf::Shader::bind(&visualizer);
+
+			glUniform2ui(0, inputWidth, inputHeight);
+			glUniform2ui(1, 8, 4);
+			glUniform2f(2, 1.f, 0.f);
+			layer3->GetOutputs().Bind(0);
+
+			glBindVertexArray(vao);
+			glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+			glBindVertexArray(0);
+
+			window.display();
+		}
+	}
 
 	size_t minibatch = 0;
 	int mode = 0;
@@ -199,7 +280,7 @@ int main()
 				error += powf(buffer[inputsOffset + i] / 255.f - outputs[i], 2.f);
 			}
 
-			std::cout << 0.5f * error << std::endl;
+			std::cout << 0.5f / config.minibatchSize * error << std::endl;
 		}
 
 		minibatch = (minibatch + 1) % (inputCount / config.minibatchSize);
