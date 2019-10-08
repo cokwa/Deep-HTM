@@ -113,7 +113,7 @@ namespace DeepHTM
 
 			}
 
-			void EvaluateGradients(const GL::ShaderStorageBuffer<GLfloat>& targets, GLintptr targetsOffset, GL::ShaderStorageBuffer<GLfloat>& outputs, GL::ShaderStorageBuffer<GLfloat>& gradients)
+			void EvaluateGradients(const GL::ShaderStorageBuffer<GLfloat>& targets, GLintptr targetsOffset, const GL::ShaderStorageBuffer<GLfloat>& outputs, GL::ShaderStorageBuffer<GLfloat>& gradients)
 			{
 				gradientEvaluation.Use();
 

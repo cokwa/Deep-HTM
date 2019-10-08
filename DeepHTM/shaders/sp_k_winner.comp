@@ -55,7 +55,7 @@ void main()
 	const uint localOutput = gl_LocalInvocationIndex;
 	const uint globalOutput = outputOffset + localOutput;
 
-	sortedMinicolumns[localOutput] = Candidate(globalOutput, (max(minicolumns[globalOutput], 0.0) + 1.0) * exp(4.0 * (sparsity - dutyCycles[globalOutput])));
+	sortedMinicolumns[localOutput] = Candidate(globalOutput, (max(minicolumns[globalOutput], 0.0) + 1.0) * exp(50.0 * (sparsity - dutyCycles[globalOutput])));
 	masks[globalOutput] = 0u;
 
 	uint activeOffset = workGroupIndex * WINNER_MINICOLUMN_COUNT;

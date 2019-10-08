@@ -76,7 +76,7 @@ int main()
 
 	DeepHTM::Layer::Config config;
 	config.minibatchSize = 32;
-	config.learningRate = 1e-2f;
+	config.learningRate = 1e-1f;
 
 	const GLuint inputWidth = 28, inputHeight = 28, inputCount = 60000;
 	const GLsizeiptr inputMinibatchSize = (GLsizeiptr)inputWidth * inputHeight * config.minibatchSize;
@@ -119,86 +119,86 @@ int main()
 	images.close();
 	labels.close();
 
-	{
-		using namespace DeepHTM::Layer;
+	//{
+	//	using namespace DeepHTM::Layer;
 
-		Linear* layer1 = new Linear(config, inputWidth * inputHeight, 32);
-		Activation* layer2 = new ReLU(config, 32);
-		Linear* layer3 = new Linear(config, 32, inputWidth * inputHeight);
-		MSE* layer4 = new MSE(config, inputWidth * inputHeight);
+	//	Linear* layer1 = new Linear(config, inputWidth * inputHeight, 32);
+	//	Activation* layer2 = new ReLU(config, 32);
+	//	Linear* layer3 = new Linear(config, 32, inputWidth * inputHeight);
+	//	MSE* layer4 = new MSE(config, inputWidth * inputHeight);
 
-		std::vector<GLfloat> data(layer3->GetGradients().GetLength());
-		GLfloat totalError = 0.f;
+	//	std::vector<GLfloat> data(layer3->GetGradients().GetLength());
+	//	GLfloat totalError = 0.f;
 
-		for (int iteration = 0; /*iteration < 10000*/; iteration++)
-		{
-			GLsizeiptr inputsOffset = (GLsizeiptr)(iteration % (inputCount / config.minibatchSize))* inputMinibatchSize;
-			
-			layer1->Evaluate(inputs, inputsOffset);
-			layer2->Evaluate(layer1->GetOutputs());
-			layer3->Evaluate(layer1->GetOutputs(), 0);
-			
-			layer4->EvaluateGradients(inputs, inputsOffset, layer3->GetOutputs(), layer3->GetGradients());
+	//	for (int iteration = 0; /*iteration < 10000*/; iteration++)
+	//	{
+	//		GLsizeiptr inputsOffset = (GLsizeiptr)(iteration % (inputCount / config.minibatchSize))* inputMinibatchSize;
+	//		
+	//		layer1->Evaluate(inputs, inputsOffset);
+	//		layer2->Evaluate(layer1->GetOutputs());
+	//		layer3->Evaluate(layer1->GetOutputs(), 0);
+	//		
+	//		layer4->EvaluateGradients(inputs, inputsOffset, layer3->GetOutputs(), layer3->GetGradients());
 
-			layer3->GetGradients().GetData(data.begin());
+	//		layer3->GetGradients().GetData(data.begin());
 
-			for (GLfloat error : data)
-			{
-				totalError += pow(error, 2.f);
-			}
+	//		for (GLfloat error : data)
+	//		{
+	//			totalError += pow(error, 2.f);
+	//		}
 
-			if (iteration % 100 == 99)
-			{
-				std::cout << 0.5f * totalError << std::endl;
-				totalError = 0.f;
-			}
+	//		if (iteration % 100 == 99)
+	//		{
+	//			std::cout << 0.5f * totalError << std::endl;
+	//			totalError = 0.f;
+	//		}
 
-			layer3->EvaluateGradients(layer1->GetGradients());
-			layer2->EvaluateGradients(layer1->GetOutputs(), layer1->GetGradients());
+	//		layer3->EvaluateGradients(layer1->GetGradients());
+	//		layer2->EvaluateGradients(layer1->GetOutputs(), layer1->GetGradients());
 
-			layer1->Update(inputs, inputsOffset);
-			layer3->Update(layer1->GetOutputs(), 0);
+	//		layer1->Update(inputs, inputsOffset);
+	//		layer3->Update(layer1->GetOutputs(), 0);
 
-			sf::Event event;
-			if (window.pollEvent(event))
-			{
-				switch (event.type)
-				{
-				case sf::Event::Closed:
-					exit(0);
-					break;
+	//		sf::Event event;
+	//		if (window.pollEvent(event))
+	//		{
+	//			switch (event.type)
+	//			{
+	//			case sf::Event::Closed:
+	//				exit(0);
+	//				break;
 
-				case sf::Event::KeyPressed:
-					if (event.key.code == sf::Keyboard::Escape)
-					{
-						exit(0);
-					}
-					break;
-				case sf::Event::Resized:
-				{
-					const sf::Vector2u windowSize = window.getSize();
-					glViewport(0, 0, windowSize.x, windowSize.y);
-					break;
-				}
-				}
-			}
+	//			case sf::Event::KeyPressed:
+	//				if (event.key.code == sf::Keyboard::Escape)
+	//				{
+	//					exit(0);
+	//				}
+	//				break;
+	//			case sf::Event::Resized:
+	//			{
+	//				const sf::Vector2u windowSize = window.getSize();
+	//				glViewport(0, 0, windowSize.x, windowSize.y);
+	//				break;
+	//			}
+	//			}
+	//		}
 
-			window.clear();
+	//		window.clear();
 
-			sf::Shader::bind(&visualizer);
+	//		sf::Shader::bind(&visualizer);
 
-			glUniform2ui(0, inputWidth, inputHeight);
-			glUniform2ui(1, 8, 4);
-			glUniform2f(2, 1.f, 0.f);
-			layer3->GetOutputs().Bind(0);
+	//		glUniform2ui(0, inputWidth, inputHeight);
+	//		glUniform2ui(1, 8, 4);
+	//		glUniform2f(2, 1.f, 0.f);
+	//		layer3->GetOutputs().Bind(0);
 
-			glBindVertexArray(vao);
-			glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-			glBindVertexArray(0);
+	//		glBindVertexArray(vao);
+	//		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	//		glBindVertexArray(0);
 
-			window.display();
-		}
-	}
+	//		window.display();
+	//	}
+	//}
 
 	size_t minibatch = 0;
 	int mode = 0;
@@ -258,7 +258,7 @@ int main()
 
 		if (iteration++ % 100 == 0)
 		{
-			/*GLfloat mean = 0.f, sqrMean = 0.f;
+			GLfloat mean = 0.f, sqrMean = 0.f;
 
 			for (GLfloat dutyCycle : spatialPooler->GetDutyCycles().GetData())
 			{
@@ -269,9 +269,9 @@ int main()
 			mean /= spatialPooler->GetTotalMinicolumnCount();
 			sqrMean /= spatialPooler->GetTotalMinicolumnCount();
 
-			std::cout << mean << ' ' << sqrMean - mean * mean << std::endl;*/
+			std::cout << mean << ' ' << sqrMean - mean * mean << std::endl;
 
-			float error = 0.f;
+			/*float error = 0.f;
 
 			std::vector<GLfloat> outputs = linear->GetOutputs().GetData();
 
@@ -280,7 +280,7 @@ int main()
 				error += powf(buffer[inputsOffset + i] / 255.f - outputs[i], 2.f);
 			}
 
-			std::cout << 0.5f / config.minibatchSize * error << std::endl;
+			std::cout << 0.5f / config.minibatchSize * error << std::endl;*/
 		}
 
 		minibatch = (minibatch + 1) % (inputCount / config.minibatchSize);
@@ -294,6 +294,8 @@ int main()
 
 		int minicolumnsWidth = 1 << (int)ceil(log2(sqrt(spatialPooler->GetMinicolumnCount())));
 		int minicolumnsHeight = spatialPooler->GetMinicolumnCount() / minicolumnsWidth;
+
+		glUniform1i(3, GL_FALSE);
 
 		switch (mode)
 		{
@@ -321,6 +323,25 @@ int main()
 			glUniform2ui(1, minibatchWidth, minibatchHeight);
 			glUniform2f(2, 1.f, 0.f);
 			spatialPooler->GetMinicolumns().Bind(0);
+			break;
+		}
+
+		case 3:
+		{
+			glUniform2ui(0, inputWidth, inputHeight);
+			glUniform2ui(1, minicolumnsWidth, minicolumnsHeight);
+			glUniform2f(2, 10.f, 0.f);
+			glUniform1i(3, GL_TRUE);
+			linear->GetWeights().Bind(0);
+			break;
+		}
+		
+		case 4:
+		{
+			glUniform2ui(0, inputWidth, inputHeight);
+			glUniform2ui(1, 8, 4);
+			glUniform2f(2, 1.f, 0.f);
+			linear->GetOutputs().Bind(0);
 			break;
 		}
 		}
