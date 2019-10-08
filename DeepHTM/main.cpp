@@ -123,7 +123,7 @@ int main()
 		using namespace DeepHTM::Layer;
 
 		Linear* layer1 = new Linear(config, inputWidth * inputHeight, 32);
-		ReLU* layer2 = new ReLU(config, 32);
+		Activation* layer2 = new ReLU(config, 32);
 		Linear* layer3 = new Linear(config, 32, inputWidth * inputHeight);
 		MSE* layer4 = new MSE(config, inputWidth * inputHeight);
 
@@ -132,7 +132,7 @@ int main()
 
 		for (int iteration = 0; /*iteration < 10000*/; iteration++)
 		{
-			GLsizeiptr inputsOffset = (GLsizeiptr)(iteration % (inputCount / config.minibatchSize)) * inputMinibatchSize;
+			GLsizeiptr inputsOffset = (GLsizeiptr)(iteration % (inputCount / config.minibatchSize))* inputMinibatchSize;
 			
 			layer1->Evaluate(inputs, inputsOffset);
 			layer2->Evaluate(layer1->GetOutputs());
@@ -153,7 +153,7 @@ int main()
 				totalError = 0.f;
 			}
 
-			layer3->EvaluateGradients(layer1->GetOutputs());
+			layer3->EvaluateGradients(layer1->GetGradients());
 			layer2->EvaluateGradients(layer1->GetOutputs(), layer1->GetGradients());
 
 			layer1->Update(inputs, inputsOffset);

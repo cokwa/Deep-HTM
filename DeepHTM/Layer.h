@@ -76,6 +76,7 @@ namespace DeepHTM
 			}
 		};
 
+		//Leaky ReLU
 		class ReLU : public Activation
 		{
 		public:

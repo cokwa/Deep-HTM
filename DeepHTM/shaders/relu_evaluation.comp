@@ -10,5 +10,5 @@ layout(local_size_x = 1) in;
 void main()
 {
 	const uint globalOutput = gl_WorkGroupID.x + gl_WorkGroupID.y * gl_NumWorkGroups.x;
-	outputs[globalOutput] = max(outputs[globalOutput], 0.0);
+	outputs[globalOutput] = max(outputs[globalOutput], 0.1 * outputs[globalOutput]);
 }
