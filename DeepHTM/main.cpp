@@ -76,7 +76,7 @@ int main()
 
 	DeepHTM::Layer::Config config;
 	config.minibatchSize = 32;
-	config.learningRate = 1e-1f;
+	config.learningRate = 1e-2f;
 
 	const GLuint inputWidth = 28, inputHeight = 28, inputCount = 60000;
 	const GLsizeiptr inputMinibatchSize = (GLsizeiptr)inputWidth * inputHeight * config.minibatchSize;
