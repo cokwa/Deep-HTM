@@ -70,7 +70,7 @@ int main()
 	glBindVertexArray(0);
 
 	DeepHTM::Layer::SpatialPooler* spatialPooler = nullptr;
-	DeepHTM::Layer::Linear* linear = nullptr;
+	DeepHTM::Layer::SparseTransform* linear = nullptr;
 	DeepHTM::Layer::Sigmoid* sigmoid = nullptr;
 	DeepHTM::Layer::MSE* mse = nullptr;
 
@@ -84,7 +84,7 @@ int main()
 	try
 	{
 		spatialPooler = new DeepHTM::Layer::SpatialPooler(config, inputWidth * inputHeight, 1024, 20);
-		linear = new DeepHTM::Layer::Linear(config, spatialPooler->GetMinicolumnCount(), inputWidth * inputHeight);
+		linear = new DeepHTM::Layer::SparseTransform(config, spatialPooler->GetMinicolumnCount(), spatialPooler->GetWinnerMinicolumnCount(), inputWidth * inputHeight);
 		sigmoid = new DeepHTM::Layer::Sigmoid(config, linear->GetOutputCount());
 		mse = new DeepHTM::Layer::MSE(config, linear->GetOutputCount());
 	}
@@ -243,15 +243,15 @@ int main()
 		const GLsizeiptr inputsOffset = (GLsizeiptr)minibatch * inputMinibatchSize;
 
 		spatialPooler->Evaluate(inputs, inputsOffset);
-		linear->Evaluate(spatialPooler->GetOutputs(), 0);
+		linear->Evaluate(spatialPooler->GetOutputs(), 0, spatialPooler->GetWinnerMinicolumns());
 		//sigmoid->Evaluate(linear->GetOutputs());
 		
 		mse->EvaluateGradients(inputs, inputsOffset, linear->GetOutputs(), linear->GetGradients());
 		//sigmoid->EvaluateGradients(linear->GetOutputs(), linear->GetGradients());
-		linear->EvaluateGradients(spatialPooler->GetGradients());
+		linear->EvaluateGradients(spatialPooler->GetGradients(), spatialPooler->GetWinnerMinicolumns());
 		spatialPooler->EvaluateGradients();
 		
-		linear->Update(spatialPooler->GetOutputs(), 0);
+		linear->Update(spatialPooler->GetOutputs(), 0, spatialPooler->GetWinnerMinicolumns());
 		spatialPooler->Update(inputs, inputsOffset);
 		
 		static GLuint iteration = 0;

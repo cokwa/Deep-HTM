@@ -1,0 +1,60 @@
+#version 430
+
+#ifndef EXTERNAL_PARAMETERS
+	#define INPUT_COUNT 1u
+	#define INDEX_COUNT 1u
+#endif
+
+layout(binding = 0) buffer Inputs
+{
+	float inputs[];
+};
+
+layout(binding = 1) buffer Indices
+{
+	uint indices[];
+};
+
+layout(binding = 2) buffer Outputs
+{
+	float outputs[];
+};
+
+layout(binding = 3) buffer Weights
+{
+	float weights[];
+};
+
+layout(binding = 4) buffer Biases
+{
+	float biases[];
+};
+
+layout(local_size_x = INDEX_COUNT) in;
+
+shared float localSums[INDEX_COUNT];
+
+void main()
+{
+	const uint minibatch = gl_WorkGroupID.y;
+	const uint localIndex = gl_LocalInvocationIndex;
+	const uint localOutput = gl_WorkGroupID.x, outputCount = gl_NumWorkGroups.x;
+	uint localInput = indices[localIndex + minibatch * INDEX_COUNT];
+
+	localSums[localIndex] = weights[localInput + localOutput * INPUT_COUNT] * inputs[localInput + minibatch * INPUT_COUNT];
+
+	for(uint stride = INDEX_COUNT >> 1u; stride > 0u; stride >>= 1u)
+	{
+		barrier();
+
+		if(localIndex < stride)
+		{
+			localSums[localIndex] += localSums[localIndex + stride];
+		}
+	}
+
+	if(localIndex == 0u)
+	{
+		outputs[localOutput + minibatch * outputCount] = localSums[0] + biases[localOutput];
+	}
+}

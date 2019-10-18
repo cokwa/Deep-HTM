@@ -1,0 +1,80 @@
+#version 430
+
+#ifndef EXTERNAL_PARAMETERS
+	#define MINIBATCH_SIZE 1u
+#endif
+
+layout(location = 0) uniform float learningRate;
+
+layout(location = 1) uniform uint inputCount;
+
+layout(binding = 0) buffer Gradients
+{
+	float gradients[];
+};
+
+layout(binding = 1) buffer Inputs
+{
+	float inputs[];
+};
+
+layout(binding = 2) buffer Indices
+{
+	uint indices[];
+};
+
+layout(binding = 3) buffer Weights
+{
+	float weights[];
+};
+
+layout(binding = 4) buffer Biases
+{
+	float biases[];
+};
+
+layout(local_size_x = MINIBATCH_SIZE) in;
+
+shared float localGradients[MINIBATCH_SIZE];
+
+void main()
+{
+	const uint _sample = gl_LocalInvocationID.x;
+	const uint _index = gl_WorkGroupID.x, indexCount = gl_NumWorkGroups.x - 1;
+	const uint _output = gl_WorkGroupID.y, outputCount = gl_NumWorkGroups.y, globalOutput = _sample * outputCount + _output;
+	uint _input = 0u;
+	
+	if(_index < indexCount)
+	{
+		_input = indices[_sample * indexCount + _index];
+
+		uint globalInput = _sample * inputCount + _input;
+		localGradients[_sample] = gradients[globalOutput] * inputs[globalInput];
+	}
+	else
+	{
+		localGradients[_sample] = gradients[globalOutput];
+	}
+
+	for(uint stride = MINIBATCH_SIZE >> 1u; stride > 0u; stride >>= 1u)
+	{
+		barrier();
+
+		if(_sample < stride)
+		{
+			localGradients[_sample] += localGradients[_sample + stride];
+		}
+	}
+
+	if(_sample == 0u)
+	{
+		if(_index < indexCount)
+		{
+			weights[_input + _output * inputCount] -= learningRate * localGradients[0u];
+		}
+		else
+		{
+			biases[_output] -= learningRate * localGradients[0u];
+		}
+	}
+}

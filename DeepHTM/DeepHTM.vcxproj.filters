@@ -34,9 +34,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\linear_update.comp">
-      <Filter>리소스 파일</Filter>
-    </None>
     <None Include="shaders\relu_evaluation.comp">
       <Filter>리소스 파일</Filter>
     </None>
@@ -55,12 +52,6 @@
     <None Include="shaders\debug.vert">
       <Filter>리소스 파일</Filter>
     </None>
-    <None Include="shaders\linear_evaluation.comp">
-      <Filter>리소스 파일</Filter>
-    </None>
-    <None Include="shaders\linear_gradient_evaluation.comp">
-      <Filter>리소스 파일</Filter>
-    </None>
     <None Include="shaders\mse_gradient_evaluation.comp">
       <Filter>리소스 파일</Filter>
     </None>
@@ -68,6 +59,24 @@
       <Filter>리소스 파일</Filter>
     </None>
     <None Include="shaders\sigmoid_evaluation.comp">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="shaders\transform_evaluation.comp">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="shaders\transform_gradient_evaluation.comp">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="shaders\transform_update.comp">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="shaders\sparse_transform_update.comp">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="shaders\sparse_transform_evaluation.comp">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="shaders\sparse_transform_gradient_evaluation.comp">
       <Filter>리소스 파일</Filter>
     </None>
   </ItemGroup>

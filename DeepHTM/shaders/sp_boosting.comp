@@ -88,5 +88,5 @@ void main()
 	dutyCycles[minicolumn] = dutyCycle;
 
 	//TODO: replace the assignment
-	gradients[minicolumn] *= float(masks[minicolumn]);// + boostingWeight * (-sparsity / dutyCycle + (1.0 - sparsity) / (1.0 - dutyCycle));
+	gradients[minicolumn] = gradients[minicolumn] * float(masks[minicolumn]);// + 0.2 * (dutyCycle - sparsity);//(-sparsity / dutyCycle + (1.0 - sparsity) / (1.0 - dutyCycle));
 }

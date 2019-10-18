@@ -126,8 +126,7 @@ namespace DeepHTM
 			}
 		};
 
-		//TODO: maybe change its name to something like 'Transform'
-		class Linear : public Layer
+		class Transform : public Layer
 		{
 		protected:
 			GLuint inputCount, outputCount;
@@ -139,43 +138,15 @@ namespace DeepHTM
 			GL::ComputeShader evaluation, gradientEvaluation, update;
 
 		public:
-			Linear(const Config& config, GLuint inputCount, GLuint outputCount) :
+			Transform(const Config& config, GLuint inputCount, GLuint outputCount, GL::ComputeShader&& evaluation, GL::ComputeShader&& gradientEvaluation, GL::ComputeShader&& update) :
 				Layer(config),
 				inputCount(inputCount), outputCount(outputCount),
-				totalOutputCount(outputCount * config.minibatchSize),
+				totalOutputCount(outputCount* config.minibatchSize),
 				outputs(totalOutputCount), gradients(totalOutputCount),
-				weights((GLsizeiptr)inputCount * outputCount), biases(outputCount),
-				evaluation
-				(
-					"shaders/linear_evaluation.comp",
-
-					"#define EXTERNAL_PARAMETERS\n"
-					"#define INPUTS_BINDING 0\n"
-					"#define OUTPUTS_BINDING 1\n"
-					"#define WEIGHTS_BINDING 2\n"
-					"#define BIASES_BINDING 3\n"
-					"#define INPUT_COUNT " + std::to_string(inputCount) + "\n"
-				),
-				gradientEvaluation
-				{
-					"shaders/linear_gradient_evaluation.comp",
-					
-					"#define EXTERNAL_PARAMETERS\n"
-					"#define OUTPUT_COUNT " + std::to_string(outputCount) + "\n"
-				},
-				update
-				{
-					"shaders/linear_update.comp",
-
-					"#define EXTERNAL_PARAMETERS\n"
-					"#define LEARNING_RATE_LOCATION 0\n"
-					"#define INPUT_COUNT_LOCATION 1\n"
-					"#define GRADIENTS_BINDING 0\n"
-					"#define INPUTS_BINDING 1\n"
-					"#define WEIGHTS_BINDING 2\n"
-					"#define BIASES_BINDING 3\n"
-					"#define MINIBATCH_SIZE " + std::to_string(config.minibatchSize) + "\n"
-				}
+				weights((GLsizeiptr)inputCount* outputCount), biases(outputCount),
+				evaluation(std::move(evaluation)),
+				gradientEvaluation(std::move(gradientEvaluation)),
+				update(std::move(update))
 			{
 				const float range = sqrtf(2.f / inputCount);
 				weights.Randomize(range);
@@ -184,6 +155,40 @@ namespace DeepHTM
 				//biases.SetData([]() { return 0.f; });
 
 				gradients.SetData([]() { return 0.f; });
+			}
+
+			Transform(const Config& config, GLuint inputCount, GLuint outputCount) :
+				Transform(config, inputCount, outputCount,
+					{
+						"shaders/transform_evaluation.comp",
+
+						"#define EXTERNAL_PARAMETERS\n"
+						"#define INPUTS_BINDING 0\n"
+						"#define OUTPUTS_BINDING 1\n"
+						"#define WEIGHTS_BINDING 2\n"
+						"#define BIASES_BINDING 3\n"
+						"#define INPUT_COUNT " + std::to_string(inputCount) + "\n"
+					},
+					{
+						"shaders/transform_gradient_evaluation.comp",
+
+						"#define EXTERNAL_PARAMETERS\n"
+						"#define OUTPUT_COUNT " + std::to_string(outputCount) + "\n"
+					},
+					{
+						"shaders/transform_update.comp",
+
+						"#define EXTERNAL_PARAMETERS\n"
+						"#define LEARNING_RATE_LOCATION 0\n"
+						"#define INPUT_COUNT_LOCATION 1\n"
+						"#define GRADIENTS_BINDING 0\n"
+						"#define INPUTS_BINDING 1\n"
+						"#define WEIGHTS_BINDING 2\n"
+						"#define BIASES_BINDING 3\n"
+						"#define MINIBATCH_SIZE " + std::to_string(config.minibatchSize) + "\n"
+					})
+			{
+				
 			}
 
 			GLuint GetOutputCount() const
@@ -262,7 +267,89 @@ namespace DeepHTM
 			}
 		};
 
-		class SpatialPooler : public Linear
+		class SparseTransform : public Transform
+		{
+		protected:
+			GLuint activeInputCount;
+
+		public:
+			SparseTransform(const Config& config, GLuint inputCount, GLuint activeInputCount, GLuint outputCount) :
+				Transform(config, inputCount, outputCount,
+					{
+						"shaders/sparse_transform_evaluation.comp",
+
+						"#define EXTERNAL_PARAMETERS\n"
+						"#define INPUT_COUNT " + std::to_string(inputCount) + "\n"
+						"#define INDEX_COUNT " + std::to_string(activeInputCount) + "\n"
+					},
+					{
+						"shaders/sparse_transform_gradient_evaluation.comp",
+
+						"#define EXTERNAL_PARAMETERS\n"
+						"#define INPUT_COUNT " + std::to_string(inputCount) + "\n"
+						"#define OUTPUT_COUNT " + std::to_string(outputCount) + "\n"
+					},
+					{
+						"shaders/sparse_transform_update.comp",
+
+						"#define EXTERNAL_PARAMETERS\n"
+						"#define MINIBATCH_SIZE " + std::to_string(config.minibatchSize) + "\n"
+					}),
+				activeInputCount(activeInputCount)
+			{
+
+			}
+
+			void Evaluate(const GL::ShaderStorageBuffer<GLfloat>& inputs, GLintptr inputsOffset, const GL::ShaderStorageBuffer<GLuint>& inputIndices)
+			{
+				const GLsizeiptr inputsLength = (GLsizeiptr)inputCount * config->minibatchSize;
+
+				evaluation.Use();
+
+				inputs.Bind(0, inputsOffset, inputsLength);
+				inputIndices.Bind(1);
+				outputs.Bind(2);
+				weights.Bind(3);
+				biases.Bind(4);
+
+				glDispatchCompute(outputCount, config->minibatchSize, 1);
+				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			}
+
+			void EvaluateGradients(GL::ShaderStorageBuffer<GLfloat>& inputGradients, const GL::ShaderStorageBuffer<GLuint>& inputIndices)
+			{
+				gradientEvaluation.Use();
+
+				inputGradients.Bind(0);
+				inputIndices.Bind(1);
+				gradients.Bind(2);
+				weights.Bind(3);
+
+				glDispatchCompute(activeInputCount, config->minibatchSize, 1);
+				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			}
+
+			void Update(const GL::ShaderStorageBuffer<GLfloat>& inputs, GLintptr inputsOffset, const GL::ShaderStorageBuffer<GLuint>& inputIndices)
+			{
+				const GLsizeiptr inputsLength = (GLsizeiptr)inputCount * config->minibatchSize;
+
+				update.Use();
+
+				glUniform1f(0, config->learningRate);
+				glUniform1ui(1, inputCount);
+
+				gradients.Bind(0);
+				inputs.Bind(1, inputsOffset, inputsLength);
+				inputIndices.Bind(2);
+				weights.Bind(3);
+				biases.Bind(4);
+
+				glDispatchCompute(activeInputCount + 1u, outputCount, 1);
+				glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+			}
+		};
+
+		class SpatialPooler : public Transform
 		{
 		private:
 			GLuint winnerMinicolumnCount;
@@ -278,7 +365,7 @@ namespace DeepHTM
 
 		public:
 			SpatialPooler(const Config& config, GLuint inputCount, GLuint minicolumnCount, GLuint winnerMinicolumnCount, GLfloat dutyCycleInertia, GLfloat boostingWeight) : 
-				Linear(config, inputCount, minicolumnCount),
+				Transform(config, inputCount, minicolumnCount),
 				winnerMinicolumnCount(winnerMinicolumnCount),
 				sparsity(static_cast<GLfloat>(winnerMinicolumnCount) / minicolumnCount),
 				dutyCycleInertia(dutyCycleInertia), boostingWeight(boostingWeight),
@@ -332,6 +419,11 @@ namespace DeepHTM
 				return totalOutputCount;
 			}
 
+			GLuint GetWinnerMinicolumnCount() const
+			{
+				return winnerMinicolumnCount;
+			}
+
 			GLfloat GetSparsity() const
 			{
 				return sparsity;
@@ -352,6 +444,11 @@ namespace DeepHTM
 				return outputs;
 			}
 
+			const GL::ShaderStorageBuffer<GLuint>& GetWinnerMinicolumns() const
+			{
+				return winnerMinicolumns;
+			}
+
 			const GL::ShaderStorageBuffer<GLfloat>& GetDutyCycles() const
 			{
 				return dutyCycles;
@@ -369,7 +466,7 @@ namespace DeepHTM
 
 			void Evaluate(const GL::ShaderStorageBuffer<float>& inputs, GLintptr inputsOffset)
 			{
-				Linear::Evaluate(inputs, inputsOffset);
+				Transform::Evaluate(inputs, inputsOffset);
 
 				const GLsizeiptr inputsLength = (GLsizeiptr)inputCount * config->minibatchSize;
 
@@ -408,7 +505,7 @@ namespace DeepHTM
 			{
 				EvaluateGradients();
 
-				Linear::EvaluateGradients(inputGradients);
+				Transform::EvaluateGradients(inputGradients);
 			}
 		};
 	}

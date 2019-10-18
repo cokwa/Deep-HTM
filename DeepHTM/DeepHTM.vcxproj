@@ -141,9 +141,12 @@
   <ItemGroup>
     <None Include="shaders\debug.frag" />
     <None Include="shaders\debug.vert" />
-    <None Include="shaders\linear_evaluation.comp" />
-    <None Include="shaders\linear_gradient_evaluation.comp" />
-    <None Include="shaders\linear_update.comp" />
+    <None Include="shaders\sparse_transform_evaluation.comp" />
+    <None Include="shaders\sparse_transform_gradient_evaluation.comp" />
+    <None Include="shaders\sparse_transform_update.comp" />
+    <None Include="shaders\transform_evaluation.comp" />
+    <None Include="shaders\transform_gradient_evaluation.comp" />
+    <None Include="shaders\transform_update.comp" />
     <None Include="shaders\mse_gradient_evaluation.comp" />
     <None Include="shaders\relu_evaluation.comp" />
     <None Include="shaders\relu_gradient_evaluation.comp" />
